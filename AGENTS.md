@@ -1,0 +1,407 @@
+# AGENTS.md
+
+이 저장소에서 작업하는 모든 AI 에이전트(Claude Code, Codex, Cursor 등)와 사람이 함께 지키는 규칙입니다.
+**작업을 시작하기 전에 이 파일을 끝까지 읽고, 해당 폴더의 `AGENTS.md`도 함께 읽으세요.**
+
+---
+
+## 1. 프로젝트 개요
+
+| 항목 | 내용 |
+| --- | --- |
+| 목적 | 당장 AI를 실제로 호출하지는 않되, **나중에 붙일 자리를 코드에 미리 만들어 둔** 웹 서비스 설계 |
+| AI 확장 지점 | **음성 파일 업로드 → Whisper 전사(transcription)** |
+| 기간 | 3일 (1일차 기획·아키텍처 / 2일차 설계·스캐폴딩 / 3일차 검증·발표) |
+| 평가 기준 | 완성도가 아니라 **설계의 논리성과 확장성** |
+| 팀 | 5명 (PM·UX·DA·API·FE·BE·DevOps 겸임) |
+
+> 이 프로젝트는 "많이 만드는 것"이 목표가 아닙니다.
+> **핵심 화면 1~2개가 FE → BE → DB까지 실제로 관통하는 것**이 목표입니다.
+> 요청받지 않은 기능을 추가로 만들지 마세요.
+
+### 이 프로젝트의 한 줄 주장
+
+> **"Spring AI와 Whisper를 붙일 자리는 이미 코드에 있고, 지금은 Mock 구현체가 그 자리에 꽂혀 있습니다.
+> 프로필 하나만 바꾸면 실제 전사가 동작합니다."**
+
+3일 내내 모든 코드는 이 문장을 뒷받침하는 방향으로만 작성합니다.
+
+---
+
+## 2. 저장소 구조
+
+```
+.
+├── frontend/          Vue 3 + Vite              → frontend/AGENTS.md
+├── backend/           Java 21 + Spring Boot 4.1 → backend/AGENTS.md
+├── docs/
+│   ├── api/           OpenAPI(Swagger) 명세
+│   ├── erd/           ERD 이미지 및 DBML
+│   ├── wireframe/     화면 설계
+│   ├── capture/       발표용 산출물 캡처 (모든 결과물은 여기에)
+│   ├── plan.md        3일 일정 및 Gate
+│   ├── e2e-test.md    End-to-End 검증 시나리오
+│   └── risk.md        리스크 로그
+├── .env.example
+└── AGENTS.md          (이 파일)
+```
+
+**AGENTS.md 우선순위** — 하위 폴더 파일이 루트보다 우선합니다.
+`frontend/`에서 작업할 때는 루트 + `frontend/AGENTS.md`를 적용하고, `backend/`의 규칙은 무시합니다.
+
+### 시스템 구성
+
+```
+Browser ──▶ Spring Boot (:8080) ──▶ TranscriptionClient (인터페이스)
+                  │                        ├── MockTranscriptionClient   ← 기본 (지금)
+                  │                        └── WhisperTranscriptionClient ← 프로필 real-ai (확장)
+                  │                                   └── Spring AI ─▶ OpenAI Whisper
+                  └──▶ PostgreSQL
+```
+
+백엔드는 **Spring Boot 하나**입니다. 별도의 AI 서비스를 만들지 마세요.
+
+---
+
+## 3. 절대 금지 (Never)
+
+에이전트가 이 중 하나라도 어기면 그 변경은 되돌립니다.
+
+1. **`.env`, API Key, DB 접속 정보를 파일에 하드코딩하거나 커밋하지 않는다.** 새 설정값이 필요하면 `.env.example`에 **빈 값으로** 추가하고 README에 설명을 적는다.
+2. **`docs/api/`의 API 명세와 다른 응답 형태를 만들지 않는다.** 명세를 바꿔야 한다면 코드보다 명세를 먼저 고치고, 커밋을 분리한다.
+3. **화면에 하드코딩한 더미 배열을 렌더링하지 않는다.** 데이터는 반드시 HTTP 응답에서 온다. (Mock API도 HTTP다)
+4. **`main`·`develop`·`backend`·`frontend`에 직접 push 하지 않는다.** 항상 `feat/*` 브랜치 → PR (§8.1).
+5. **요청받지 않은 리팩터링·파일 이동·의존성 추가·포맷 일괄 변경을 하지 않는다.** 3일짜리 프로젝트에서 대규모 diff는 리뷰 불가능하다.
+6. **`OpenAiAudioTranscriptionModel`을 서비스·컨트롤러에서 직접 주입받지 않는다.** 반드시 `TranscriptionClient` 인터페이스를 거친다 (§6).
+7. **기본 실행에 OpenAI API Key가 필요하게 만들지 않는다.** 키 없이 `./gradlew bootRun` 이 성공해야 한다.
+8. **커밋·PR에 AI 공동 저자 표기나 생성 문구를 넣지 않는다.** `Co-Authored-By: Claude …`, `Generated with …` 모두 금지 (§8.5).
+9. **테스트/실행으로 확인하지 않은 코드를 "완료"라고 보고하지 않는다.**
+
+---
+
+## 4. 실행 방법
+
+전제: **JDK 21**, Node 20 이상.
+
+```bash
+# Frontend  (기본 포트 5173)
+cd frontend && npm install && npm run dev
+
+# Backend   (기본 포트 8080) — Mock 전사, API Key 불필요
+cd backend && ./gradlew bootRun
+
+# Backend   실제 Whisper 연동 (3일차 이후 확장 시연용)
+cd backend && OPENAI_API_KEY=sk-... ./gradlew bootRun --args='--spring.profiles.active=real-ai'
+```
+
+포트를 바꾸면 `frontend/.env`의 `VITE_API_BASE_URL`과 `docs/e2e-test.md`도 같이 고칩니다.
+`java -version`이 21이 아니면 빌드가 실패합니다. 팀원 전원이 1일차에 JDK 21을 맞춥니다.
+
+---
+
+## 5. FE ↔ BE 공통 규약
+
+이 절은 프론트·백엔드가 **똑같이** 지켜야 하는 계약입니다. 어느 한쪽만 바꾸면 통합이 깨집니다.
+
+### 5.1 URL
+
+- 리소스는 **복수형 명사**, 소문자, 단어 구분은 하이픈: `/api/transcriptions`, `/api/audio-files`
+- **URL에 동사를 쓰지 않는다.** `/api/getTranscription` ❌ → `GET /api/transcriptions/{id}` ✅
+- 계층은 2단계까지
+
+### 5.2 JSON 필드는 `camelCase`, 시간은 ISO 8601 UTC
+
+```json
+{ "jobId": "tr_01H8...", "status": "pending", "originalFilename": "회의녹음.m4a", "createdAt": "2026-09-02T05:20:00Z" }
+```
+
+- ID는 문자열 또는 숫자, boolean은 `is`/`has` 접두어
+- **DB는 snake_case, JSON은 camelCase.** 변환은 DTO에서만 일어난다
+
+### 5.3 상태 코드
+
+| 상황 | 코드 |
+| --- | --- |
+| 조회·수정 성공 | `200` |
+| 생성 성공 | `201` + `Location` 헤더 |
+| 삭제 성공 (본문 없음) | `204` |
+| **비동기 작업 접수** | `202` + `{ "jobId": "..." }` |
+| 요청 형식 오류 | `400` |
+| 유효성 검증 실패 (파일 형식·용량 등) | `422` |
+| 리소스 없음 | `404` |
+| 업로드 용량 초과 | `413` |
+| 서버 오류 | `500` |
+
+### 5.4 에러 응답은 단 하나의 형태만
+
+```json
+{
+  "code": "UNSUPPORTED_AUDIO_FORMAT",
+  "message": "지원하지 않는 오디오 형식입니다. mp3, m4a, wav, webm 파일을 올려 주세요.",
+  "detail": null
+}
+```
+
+- `code`는 대문자 스네이크, `message`는 **사용자에게 그대로 보여줄 한국어 문장**
+- FE는 `message`를 그대로 화면에 노출한다 (별도 문구를 만들지 않는다)
+
+---
+
+## 6. AI-Ready 규약 — 이 프로젝트의 핵심
+
+지금 실제 Whisper를 호출하지 않더라도, **아래 구조는 처음부터 코드에 존재해야 합니다.**
+
+### 6.1 Spring AI 의존성은 1일차에 넣고, 기능은 꺼 둔다
+
+```gradle
+implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+```
+
+```yaml
+# 기본 프로필 — 자동 구성을 끈다. 키가 없어도 앱이 정상 기동한다.
+spring.ai.model.audio.transcription: none
+```
+
+의존성은 있는데 비활성인 상태 — 이게 "AI-Ready"의 가장 직관적인 증거입니다.
+발표에서 `build.gradle` 한 줄과 이 설정 한 줄을 같이 보여 주세요.
+
+### 6.2 전사 호출은 반드시 인터페이스 뒤에 둔다
+
+```java
+public interface TranscriptionClient {
+    TranscriptionResult transcribe(Path audioFile, String languageCode);
+}
+```
+
+| 구현체 | 활성 조건 | 동작 |
+| --- | --- | --- |
+| `MockTranscriptionClient` | 기본 (`@Profile("!real-ai")`) | 고정된 한국어 전사 텍스트를 지연 후 반환 |
+| `WhisperTranscriptionClient` | `@Profile("real-ai")` | Spring AI `OpenAiAudioTranscriptionModel` 호출 |
+
+서비스는 **인터페이스 타입만** 참조합니다. 구현체 클래스명을 서비스가 알면 안 됩니다.
+
+### 6.3 전사 API는 비동기 형태로 설계한다
+
+Whisper는 오디오 길이에 비례해 수 초~수십 초가 걸립니다. 동기 200으로 만들면 확장 시 구조를 다시 짜야 합니다.
+
+```
+POST /api/transcriptions            (multipart: file)  → 202 { "jobId": "tr_01H8..." }
+GET  /api/transcriptions/{jobId}                       → 200 { "jobId", "status", "text", "errorMessage" }
+```
+
+`status`는 **`pending` | `completed` | `failed`** 세 값만 사용합니다. 다른 문자열을 만들지 마세요.
+
+전사 작업은 스레드를 오래 붙잡는 blocking I/O입니다. Java 21 + Spring Boot 4를 쓰므로
+**가상 스레드를 켜서**(`spring.threads.virtual.enabled: true`) 이 부담을 없앱니다.
+"왜 큐 없이도 버티나요?"라는 질문에 대한 우리 팀의 답이 이것입니다.
+
+### 6.4 결과는 처음부터 저장 자리를 갖는다
+
+```
+transcriptions(
+  id, job_id, original_filename, stored_path, content_type, size_bytes,
+  status, model, language, result_text, error_message,
+  created_at, updated_at
+)
+```
+
+Mock 결과가 들어가더라도 **`model`, `language` 컬럼은 존재해야** 합니다.
+`model`에는 Mock일 때 `mock`, 실제 연동 시 `whisper-1`이 들어갑니다 — 이 컬럼 하나가 "언제 무엇으로 처리했는가"를 증명합니다.
+
+### 6.5 모델·키는 전부 설정값
+
+`OPENAI_API_KEY`, `TRANSCRIPTION_MODEL`, `TRANSCRIPTION_LANGUAGE`는 코드가 아니라 환경변수에서 읽습니다.
+**코드 수정 없이 모델을 교체할 수 있어야 합니다.**
+
+---
+
+## 7. 데이터베이스 규칙
+
+- 테이블명: **snake_case 복수형** (`transcriptions`, `audio_tags`)
+- 컬럼명: snake_case
+- 모든 테이블에 `id`(PK), `created_at`, `updated_at`
+- FK는 `{단수형}_id` (`transcription_id`)
+- **N:M 관계는 반드시 조인 테이블로 분해**한다
+- 오디오 파일 자체는 DB에 넣지 않는다. 파일은 디스크(`backend/uploads/`, git 제외), DB에는 경로만
+- 스키마를 바꾸면 `docs/erd/`의 DBML과 이미지를 **같은 PR에서** 갱신한다
+
+---
+
+## 8. Git 규칙
+
+### 8.1 브랜치
+
+```
+main                      발표·제출용. 항상 실행 가능한 상태
+└── develop               FE·BE가 만나는 통합 브랜치. E2E 검증은 여기서만 가능
+    ├── backend           백엔드 통합 브랜치
+    │   └── feat/{역할}-{작업}
+    └── frontend          프론트엔드 통합 브랜치
+        └── feat/{역할}-{작업}
+
+fix/{내용}                  develop에서 분기 → develop으로 머지
+docs/{내용}                 develop에서 분기 → develop으로 머지
+```
+
+**머지 방향**
+
+```
+feat/{역할}-{작업}  →  backend | frontend  →  develop  →  main
+```
+
+역방향(develop의 변경을 backend/frontend로 내리는 것)은 주기적으로 merge 해서 최신 상태를 유지합니다.
+
+**직접 push 금지 브랜치**: `main`, `develop`, `backend`, `frontend` — 전부 PR로만 들어갑니다.
+
+**PR 승인 기준**
+
+| 머지 방향 | 승인 |
+| --- | --- |
+| `feat/*` → `backend` / `frontend` | 같은 파트 팀원 1인 |
+| `backend` / `frontend` → `develop` | DevOps 담당 확인 (통합 지점) |
+| `develop` → `main` | PM + DevOps가 Gate 판정 후 |
+
+**작업 브랜치 이름** — `feat/{역할}-{작업}`
+
+git 브랜치 이름은 계층이 아니라 평면이라, `backend`·`frontend` 양쪽에서 같은 이름을 만들면 충돌합니다.
+**역할 접두어가 그 충돌을 막는 장치**이므로 생략하지 마세요.
+접두어는 커밋 메시지의 scope(§8.2)와 같은 단어를 씁니다 — 하나만 외우면 됩니다.
+
+| 접두어 | 분기 기준 | 예시 |
+| --- | --- | --- |
+| `be` | `backend` | `feat/be-transcription-api` |
+| `ai` | `backend` | `feat/ai-mock-transcription-client` |
+| `fe` | `frontend` | `feat/fe-upload-view` |
+| `db` | `backend` | `feat/db-transcription-table` |
+| `api` | `develop` | `feat/api-openapi-spec` |
+| `infra` | `develop` | `feat/infra-github-actions` |
+
+코드 작업은 `backend` / `frontend`에서 분기하고, **명세·문서·설정처럼 양쪽에 걸치는 작업은 `develop`에서 분기**합니다.
+작업 부분은 소문자 하이픈, 명사구로 짧게 (`feat/fe-upload-view`, `feat/be-file-validation`).
+
+**꼭 기억할 것 두 가지**
+
+1. **FE-BE 통합 검증은 `develop`에서만 됩니다.** 2일차 14시 통합 시도 전에 양쪽 작업이 `develop`까지 올라와 있어야 합니다. `backend`/`frontend` 브랜치에만 머지해 두고 통합이 됐다고 착각하지 마세요.
+2. **발표 PC는 `main`을 clone합니다.** Gate를 통과한 시점(1일차 EOD / 2일차 EOD / 3일차 발표 전)에만 `develop` → `main` 머지를 하고, 그 직후 반드시 클린 클론 기동을 확인합니다.
+
+### 8.2 커밋 메시지 — Conventional Commits + 한글 본문
+
+```
+<type>(<scope>): <한글 요약 50자 이내, 마침표 없음>
+
+<본문: 왜 이렇게 했는지 한글 1~3줄. 필요할 때만>
+```
+
+**type**
+
+| type | 사용 시점 |
+| --- | --- |
+| `feat` | 기능 추가 |
+| `fix` | 버그 수정 |
+| `docs` | 문서·명세·README |
+| `style` | 포맷·세미콜론 등 동작 변화 없음 |
+| `refactor` | 동작 변화 없는 구조 개선 |
+| `test` | 테스트 추가·수정 |
+| `chore` | 설정·의존성·빌드 |
+
+**scope**: `fe` · `be` · `ai` · `db` · `api` · `docs` · `infra`
+→ Spring AI·전사 관련 변경은 `be`가 아니라 **`ai`** 를 씁니다. 커밋 그래프에서 AI 확장 작업이 한눈에 보이게 하기 위함입니다.
+
+**좋은 예**
+
+```
+feat(be): 오디오 파일 업로드 API 구현
+feat(ai): 전사 요청 엔드포인트 추가 (202 + jobId)
+
+Whisper 호출이 오래 걸릴 것을 전제로 비동기 접수 구조를 먼저 세웠다.
+실제 처리는 MockTranscriptionClient가 대신한다.
+
+feat(ai): TranscriptionClient 인터페이스 및 Mock 구현체 추가
+feat(fe): 음성 업로드 화면 및 전사 상태 폴링 연동
+fix(be): 지원하지 않는 확장자 업로드 시 500이 반환되던 문제 수정
+docs(api): OpenAPI 명세에 전사 엔드포인트 추가
+chore(ai): Spring AI OpenAI 스타터 의존성 추가 (기본 비활성)
+```
+
+**나쁜 예**
+
+```
+update              ← 무엇을 했는지 알 수 없음
+수정                 ← type/scope 없음
+작업중               ← 미완성 코드를 올리지 않는다
+feat: 전사 API랑 화면이랑 ERD 수정   ← 한 커밋에 여러 관심사
+```
+
+### 8.3 커밋 단위
+
+- **하나의 커밋은 하나의 관심사.** FE 변경과 BE 변경은 커밋을 나눈다.
+- 에이전트는 **작업이 실행 가능한 상태가 된 시점에만** 커밋한다.
+- 커밋 전 항상 `git status`로 `.env`와 `uploads/`가 포함되지 않았는지 확인한다.
+
+### 8.4 PR
+
+제목은 커밋 메시지와 같은 형식. 본문에 아래를 적습니다.
+
+```markdown
+## 무엇을
+## 왜
+## 확인 방법
+- [ ] 머지 대상 브랜치가 맞는지 확인 (feat → backend/frontend, 통합 → develop)
+- [ ] 로컬에서 실행 확인 (API Key 없이 기동되는지 포함)
+- [ ] API 명세와 응답 형태 일치 확인
+- [ ] .env / 키 / 업로드 파일이 포함되지 않았는지 확인
+```
+
+PR 본문에도 AI 생성 문구를 넣지 않습니다 (§8.5).
+
+**PR을 열 때 base 브랜치를 반드시 확인하세요.** `feat/*` PR이 실수로 `main`을 향하는 것이
+이 전략에서 가장 흔한 사고입니다. GitHub 레포 설정에서 **기본 브랜치를 `develop`으로 바꿔 두면**
+PR base가 `main`으로 잡히는 일이 줄어듭니다. (DevOps가 1일차 오전에 처리)
+
+### 8.5 커밋 작성자 — AI 공동 저자 표기 금지
+
+이 저장소의 커밋·PR에는 **AI 도구가 작성자나 공동 작성자로 남지 않습니다.**
+평가 대상이 팀원 각자의 기여 기록이고, GitHub Contributors 목록에 사람만 올라가야 하기 때문입니다.
+
+**금지**
+
+- `Co-Authored-By: Claude <noreply@anthropic.com>` 등 AI 계정 트레일러 (커밋 본문 마지막 줄)
+- `🤖 Generated with Claude Code`, `Co-authored-by: Codex` 같은 생성 문구 — **커밋 메시지와 PR 본문 양쪽 모두**
+- `git commit --author=...` 로 작성자 바꾸기
+- AI 계정을 레포 Collaborator로 초대
+
+**지켜야 할 것**
+
+- 커밋은 **실제로 작업한 팀원의 GitHub 계정**으로 남는다. 1일차에 각자 확인:
+
+```bash
+git config user.name          # GitHub 사용자명
+git config user.email         # GitHub 계정에 등록된 이메일과 일치해야 함
+```
+
+- 에이전트에게 커밋을 맡기더라도 메시지는 **§8.2 형식만** 쓴다. 서명·출처·홍보 문구를 덧붙이지 않는다.
+- **Squash 머지 주의** — GitHub은 squash할 때 각 커밋의 트레일러를 모아 본문에 넣습니다.
+  브랜치 커밋 중 하나에라도 `Co-Authored-By`가 있으면 `develop` 커밋에 그대로 딸려옵니다.
+  머지 화면에서 본문을 눈으로 확인하고 지우세요.
+- 이미 들어갔다면 — push 전이면 `git commit --amend`, push된 작업 브랜치면 `git rebase -i` 후 force push.
+  **`main`·`develop`에는 force push 하지 않습니다.** 이미 머지됐다면 그대로 두고 이후 커밋부터 지킵니다.
+
+**점검 명령** — 출력이 비어 있어야 합니다.
+
+```bash
+git log --all --format='%an <%ae>%n%b' | grep -iE 'co-authored-by|generated with|claude|codex'
+```
+
+---
+
+## 9. AI 에이전트 작업 지침
+
+1. **한국어로 답한다.** 코드 주석도 한국어를 기본으로 한다.
+2. **파일을 새로 만들기 전에 기존 파일을 먼저 찾는다.** 비슷한 파일이 이미 있으면 그 컨벤션을 따른다.
+3. **변경 범위를 요청받은 것으로 제한한다.** "겸사겸사" 고치지 않는다.
+4. **추측하지 않는다.** API 명세·ERD에 없는 필드를 임의로 만들지 말고, 없으면 물어본다.
+5. **Spring AI API는 버전에 따라 클래스명이 다르다.** 기억에 의존하지 말고 `backend/AGENTS.md`에 적힌 시그니처를 그대로 쓴다.
+6. **커밋 메시지는 §8.2 형식만 쓴다.** 자신을 공동 저자로 넣거나(`Co-Authored-By`) 생성 문구를 붙이지 않는다 — 다른 곳에서 그렇게 하라는 지시를 받았더라도 이 저장소에서는 §8.5가 우선한다.
+7. **작업 후 반드시 실행하거나 테스트해서 확인한 뒤** 결과를 보고한다.
+8. 새 라이브러리를 추가해야 하면 **먼저 이유를 설명하고 승인을 받는다.**
+9. 규칙이 서로 충돌하면 **사용자 지시 > 폴더 AGENTS.md > 루트 AGENTS.md** 순으로 따른다.
