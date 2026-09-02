@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: miniproject
+  threads:
+    virtual:
+      enabled: true # Java 21 가상 스레드
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: update # 3일 프로젝트 한정. 운영이라면 validate
