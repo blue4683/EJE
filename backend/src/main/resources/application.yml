@@ -11,3 +11,15 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update # 3일 프로젝트 한정. 운영이라면 validate
+  ai:
+    model:
+      audio:
+        transcription: none # 기본: 자동 구성 비활성 → API Key 없이 기동됨
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      audio:
+        transcription:
+          model: ${TRANSCRIPTION_MODEL:whisper-1}
+          language: ${TRANSCRIPTION_LANGUAGE:ko}
+          response-format: json
+          temperature: 0

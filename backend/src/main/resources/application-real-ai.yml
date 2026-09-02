@@ -1,0 +1,5 @@
+spring:
+  ai:
+    model:
+      audio:
+        transcription: openai
