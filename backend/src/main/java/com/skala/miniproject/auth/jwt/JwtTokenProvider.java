@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -36,10 +37,14 @@ public class JwtTokenProvider {
     }
 
     public String issueAccessToken(Long userId) {
-        return issue(userId, TokenType.ACCESS);
+        return issue(userId, TokenType.ACCESS).value();
     }
 
     public String issueRefreshToken(Long userId) {
+        return issueRefreshTokenWithExpiration(userId).value();
+    }
+
+    public IssuedToken issueRefreshTokenWithExpiration(Long userId) {
         return issue(userId, TokenType.REFRESH);
     }
 
@@ -51,25 +56,26 @@ public class JwtTokenProvider {
         return validate(token, TokenType.REFRESH);
     }
 
-    private String issue(Long userId, TokenType tokenType) {
+    private IssuedToken issue(Long userId, TokenType tokenType) {
         if (userId == null || userId <= 0) {
             throw new IllegalArgumentException("사용자 ID는 양수여야 합니다.");
         }
 
-        Instant issuedAt = Instant.now();
+        Instant issuedAt = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        Instant expiresAt = issuedAt.plusSeconds(ttlSeconds(tokenType));
         JWTClaimsSet claims = new JWTClaimsSet.Builder()
                 .issuer(properties.issuer())
                 .audience(audience(tokenType))
                 .subject(userId.toString())
                 .issueTime(Date.from(issuedAt))
-                .expirationTime(Date.from(issuedAt.plusSeconds(ttlSeconds(tokenType))))
+                .expirationTime(Date.from(expiresAt))
                 .claim("tokenUse", tokenType.name())
                 .build();
         SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
 
         try {
             jwt.sign(new MACSigner(secret(tokenType)));
-            return jwt.serialize();
+            return new IssuedToken(jwt.serialize(), expiresAt);
         } catch (JOSEException e) {
             throw new IllegalStateException("JWT 서명에 실패했습니다.", e);
         }
@@ -149,5 +155,8 @@ public class JwtTokenProvider {
         return tokenType == TokenType.ACCESS
                 ? ErrorCode.UNAUTHORIZED
                 : ErrorCode.INVALID_REFRESH_TOKEN;
+    }
+
+    public record IssuedToken(String value, Instant expiresAt) {
     }
 }
