@@ -20,21 +20,24 @@ defineProps({
 <style scoped>
 .page-header {
   display: flex;
-  align-items: end;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
   margin-bottom: var(--space-6);
+  padding: var(--space-6) 0;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .page-header h1 {
   margin: 0;
-  font-size: clamp(1.65rem, 4vw, 2.35rem);
-  line-height: 1.2;
+  font-size: clamp(1.2rem, 1.8vw, 1.5rem);
+  line-height: 1.3;
   letter-spacing: -0.035em;
 }
 
 .page-header p {
   margin: var(--space-2) 0 0;
+  font-size: .9rem;
   color: var(--color-text-muted);
 }
 

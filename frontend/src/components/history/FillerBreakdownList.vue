@@ -6,8 +6,8 @@ defineProps({ items: { type: Array, default: () => [] } })
 
 <template>
   <div class="breakdown">
-    <div v-for="item in items" :key="item.word" class="breakdown__row">
-      <span>“{{ item.word }}”</span>
+    <div v-for="item in items" :key="item.expression" class="breakdown__row">
+      <span>“{{ item.expression }}”</span>
       <strong>{{ formatCount(item.count) }}</strong>
     </div>
   </div>

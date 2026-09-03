@@ -1,23 +1,23 @@
 :root {
   color-scheme: light;
-  --color-bg: #f4f7fb;
+  --color-bg: #f3f3f3;
   --color-surface: #ffffff;
-  --color-surface-soft: #f7f9fc;
-  --color-text: #182033;
-  --color-text-muted: #657089;
-  --color-border: #dfe5ef;
-  --color-primary: #3867e8;
-  --color-primary-strong: #254db9;
-  --color-primary-weak: #eaf0ff;
-  --color-danger: #c93838;
-  --color-danger-weak: #fff0f0;
-  --color-warning: #9c6500;
-  --color-warning-weak: #fff7df;
-  --color-success: #18794e;
-  --color-success-weak: #eaf8f1;
-  --color-speech: #3867e8;
-  --color-silence: #c9d1df;
-  --shadow-card: 0 14px 40px rgba(28, 42, 72, 0.08);
+  --color-surface-soft: #f7f7f7;
+  --color-text: #222222;
+  --color-text-muted: #777777;
+  --color-border: #cccccc;
+  --color-primary: #222222;
+  --color-primary-strong: #222222;
+  --color-primary-weak: #eeeeee;
+  --color-danger: #222222;
+  --color-danger-weak: #f1f1f1;
+  --color-warning: #555555;
+  --color-warning-weak: #f5f5f5;
+  --color-success: #333333;
+  --color-success-weak: #f1f1f1;
+  --color-speech: #777777;
+  --color-silence: #d8d8d8;
+  --shadow-card: none;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -28,8 +28,8 @@
   --space-10: 40px;
   --space-12: 48px;
   --radius-1: 8px;
-  --radius-2: 14px;
-  --radius-3: 20px;
+  --radius-2: 8px;
+  --radius-3: 8px;
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
 }
 
@@ -43,6 +43,7 @@ html {
 }
 
 body {
+  min-width: 320px;
   min-height: 100vh;
   margin: 0;
   color: var(--color-text);

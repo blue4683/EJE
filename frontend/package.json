@@ -5,7 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:mock": "vite --mode mock",
+    "dev:real": "vite --mode real",
+    "mock": "node mock-api/server.mjs",
+    "mock:api": "node mock-api/server.mjs",
     "build": "vite build",
+    "build:mock": "vite build --mode mock",
+    "build:real": "vite build --mode real",
     "preview": "vite preview"
   },
   "dependencies": {
