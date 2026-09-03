@@ -1,0 +1,14 @@
+analysis:
+  engine: mock                          # mock 만 유효. prod 에서 mock 이면 기동 실패시킨다
+  algorithm-version: speech-habits-v1
+  engine-version: mock-pipeline-v1
+  slots: 2                              # 인스턴스당 동시 분석
+  upload-slots: 4                       # 인스턴스당 동시 업로드
+  lease-seconds: 30
+  heartbeat-seconds: 5
+  execution-deadline-seconds: 600
+  call-timeout-seconds: 120
+  auto-retry-max: 3
+  ffmpeg-path: ffmpeg
+  decode-timeout-seconds: 10
+  upload-receive-timeout-seconds: 30

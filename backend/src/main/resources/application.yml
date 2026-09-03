@@ -1,25 +1,38 @@
 spring:
   application:
     name: miniproject
+  config:
+    import: classpath:application-analysis.yml   # B 단독 소유 파일 (§9-6)
   threads:
     virtual:
-      enabled: true # Java 21 가상 스레드
+      enabled: true                              # Java 21 가상 스레드
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
   jpa:
     hibernate:
-      ddl-auto: update # 3일 프로젝트 한정. 운영이라면 validate
-  ai:
-    model:
-      audio:
-        transcription: none # 기본: 자동 구성 비활성 → API Key 없이 기동됨
-    openai:
-      api-key: ${OPENAI_API_KEY:}
-      audio:
-        transcription:
-          model: ${TRANSCRIPTION_MODEL:whisper-1}
-          language: ${TRANSCRIPTION_LANGUAGE:ko}
-          response-format: json
-          temperature: 0
+      ddl-auto: validate                         # 스키마 정본은 db/schema.sql
+    open-in-view: false
+  servlet:
+    multipart:
+      max-file-size: 16777216B                   # 16MiB
+      max-request-size: 18874368B                # 18MiB
+      file-size-threshold: 16777216B              # 디스크로 흘리지 않는다
+      location: /run/speech-tmp                  # docker tmpfs
+
+server:
+  servlet:
+    context-path: /api/v1
+
+jwt:
+  issuer: speech-service
+  access-audience: speech-api
+  refresh-audience: speech-auth
+  access-ttl-seconds: 1800
+  refresh-ttl-seconds: 1209600
+  access-secret: ${JWT_ACCESS_SECRET}
+  refresh-secret: ${JWT_REFRESH_SECRET}
+
+app:
+  allowed-origin: ${APP_ORIGIN:http://localhost:5173}
