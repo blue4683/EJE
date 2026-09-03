@@ -3,6 +3,7 @@ package com.skala.miniproject.recording.service;
 import com.skala.miniproject.analysis.AnalysisSlotGuard;
 import com.skala.miniproject.analysis.idempotency.IdempotencyService;
 import com.skala.miniproject.analysis.idempotency.RequestFingerprint;
+import com.skala.miniproject.analysis.pipeline.AnalysisExecutor;
 import com.skala.miniproject.analysis.repository.AnalysisWriteRepository;
 import com.skala.miniproject.analysis.repository.UserLockRepository;
 import com.skala.miniproject.audio.AudioDecodeException;
@@ -37,12 +38,19 @@ import java.util.UUID;
  * 00-공통기반.md §C1(비동기 경계)·§C4(락 순서)를 그대로 따른다.
  *
  * 흐름: 업로드 슬롯 확보 → 바이트 읽기 → (지문 조회 전) 빈 파일 거절 → 지문 계산·기존 키 조회
- * → 신규 키면 디코딩(트랜잭션 밖) → 분석 슬롯 확보 → 짧은 트랜잭션(users 잠금 → 재확인 → 커밋).
+ * → 신규 키면 디코딩(트랜잭션 밖) → 분석 슬롯 확보 → 짧은 트랜잭션(users 잠금 → 재확인 → 커밋)
+ * → 커밋 성공 시 비동기 실행 등록(B5).
+ *
+ * 분석 슬롯의 소유권: 신규 생성이 성공해 AnalysisExecutor 에 실행을 넘기면, 그 순간부터는
+ * AnalysisExecutor 가 실행이 끝날 때(성공·실패) 슬롯을 해제한다 — 여기서는 넘기지 못한
+ * 경우(멱등 재전송·검증 실패 등)에만 슬롯을 해제한다. 접수 단계에서 무조건 해제해 버리면
+ * "인스턴스당 동시 분석 2개" 제한이 실제 처리 시간 동안은 지켜지지 않는다.
  */
 @Service
 public class RecordingSubmitService {
 
     private static final String CREATE_TARGET_ANALYSIS_ID = "-";
+    private static final int INITIAL_ATTEMPT_NO = 1;
 
     /** 이 인스턴스가 접수하는 분석의 worker_id. 프로세스 생존 동안 고정된 값이다. */
     private final UUID workerId = UUID.randomUUID();
@@ -57,6 +65,7 @@ public class RecordingSubmitService {
     private final AnalysisProperties analysisProperties;
     private final JsonMapper jsonMapper;
     private final TransactionTemplate shortTransaction;
+    private final AnalysisExecutor analysisExecutor;
 
     public RecordingSubmitService(
             UploadSlotGuard uploadSlotGuard,
@@ -68,7 +77,8 @@ public class RecordingSubmitService {
             UserLockRepository userLockRepository,
             AnalysisProperties analysisProperties,
             JsonMapper jsonMapper,
-            PlatformTransactionManager transactionManager
+            PlatformTransactionManager transactionManager,
+            AnalysisExecutor analysisExecutor
     ) {
         this.uploadSlotGuard = uploadSlotGuard;
         this.analysisSlotGuard = analysisSlotGuard;
@@ -80,6 +90,7 @@ public class RecordingSubmitService {
         this.analysisProperties = analysisProperties;
         this.jsonMapper = jsonMapper;
         this.shortTransaction = new TransactionTemplate(transactionManager);
+        this.analysisExecutor = analysisExecutor;
     }
 
     /** @return 최종 202 envelope 의 JSON 문자열. 컨트롤러가 그대로 응답 본문에 쓴다. */
@@ -88,6 +99,7 @@ public class RecordingSubmitService {
             throw new BusinessException(ErrorCode.ANALYSIS_CAPACITY_EXCEEDED);
         }
         boolean analysisSlotAcquired = false;
+        boolean handedOffToPipeline = false;
         try {
             byte[] audioBytes = readBytes(audioPart);
 
@@ -112,11 +124,18 @@ public class RecordingSubmitService {
             }
             analysisSlotAcquired = true;
 
-            return shortTransaction.execute(status -> commitNewSubmission(
+            SubmissionOutcome outcome = shortTransaction.execute(status -> commitNewSubmission(
                     userId, idempotencyKey, requestFingerprint, audioSha256,
                     decoded, normalizedMime, audioBytes.length));
+
+            if (outcome.newlyCreated()) {
+                analysisExecutor.execute(userId, outcome.recordingId(), outcome.analysisId(), workerId,
+                        INITIAL_ATTEMPT_NO, audioBytes, decoded.durationMs(), outcome.executionDeadlineAt());
+                handedOffToPipeline = true;
+            }
+            return outcome.responseBody();
         } finally {
-            if (analysisSlotAcquired) {
+            if (analysisSlotAcquired && !handedOffToPipeline) {
                 analysisSlotGuard.release();
             }
             uploadSlotGuard.release();
@@ -124,9 +143,9 @@ public class RecordingSubmitService {
     }
 
     /** §C4 — users 를 가장 먼저 잠근 뒤 recordings·analyses·멱등 키를 원자적으로 커밋한다. */
-    private String commitNewSubmission(Long userId, UUID idempotencyKey, String requestFingerprint,
-                                        String audioSha256, DecodedAudio decoded, String normalizedMime,
-                                        long fileSizeBytes) {
+    private SubmissionOutcome commitNewSubmission(Long userId, UUID idempotencyKey, String requestFingerprint,
+                                                   String audioSha256, DecodedAudio decoded, String normalizedMime,
+                                                   long fileSizeBytes) {
         Instant now = Instant.now();
         userLockRepository.lockById(userId);
 
@@ -134,7 +153,7 @@ public class RecordingSubmitService {
         idempotencyService.deleteIfExpired(userId, idempotencyKey, now);
         Optional<ApiIdempotencyKey> racedKey = idempotencyService.findValid(userId, idempotencyKey, now);
         if (racedKey.isPresent()) {
-            return idempotencyService.reproduceOrFail(racedKey.get(), requestFingerprint);
+            return SubmissionOutcome.replay(idempotencyService.reproduceOrFail(racedKey.get(), requestFingerprint));
         }
 
         if (analysisWriteRepository.countActiveByUserId(userId) > 0) {
@@ -158,9 +177,18 @@ public class RecordingSubmitService {
         idempotencyService.saveAccepted(userId, idempotencyKey, IdempotencyOperation.CREATE_RECORDING,
                 requestFingerprint, recording.getId(), analysis.getId(), responseBody, now);
 
-        // B5(비동기 분석 파이프라인) 가 이 지점에서 실행을 등록한다. 아직 구현되지 않았으므로
-        // 지금은 PENDING 행만 커밋하고 끝난다 — 실행이 시작되지 않는 것이 현재 범위의 정상 동작이다.
-        return responseBody;
+        return new SubmissionOutcome(responseBody, true, recording.getId(), analysis.getId(), deadline);
+    }
+
+    /**
+     * newlyCreated=false(멱등 재전송)면 recordingId·analysisId·executionDeadlineAt 은 쓰지 않는다 —
+     * 그 경우 새로 실행을 등록할 대상이 없기 때문이다.
+     */
+    private record SubmissionOutcome(String responseBody, boolean newlyCreated, Long recordingId,
+                                      Long analysisId, Instant executionDeadlineAt) {
+        static SubmissionOutcome replay(String responseBody) {
+            return new SubmissionOutcome(responseBody, false, null, null, null);
+        }
     }
 
     private byte[] readBytes(MultipartFile audioPart) {
