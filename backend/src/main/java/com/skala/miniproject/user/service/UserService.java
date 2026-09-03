@@ -7,7 +7,7 @@ import com.skala.miniproject.domain.user.User;
 import com.skala.miniproject.domain.user.UserRepository;
 import com.skala.miniproject.user.dto.WithdrawRequest;
 import com.skala.miniproject.user.repository.ActiveAnalysisCountRepository;
-import com.skala.miniproject.user.repository.UserLockRepository;
+import com.skala.miniproject.user.repository.WithdrawalUserLockRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -20,7 +20,7 @@ import java.nio.charset.StandardCharsets;
 public class UserService {
 
     private final UserRepository userRepository;
-    private final UserLockRepository userLockRepository;
+    private final WithdrawalUserLockRepository userLockRepository;
     private final ActiveAnalysisCountRepository activeAnalysisCountRepository;
     private final PasswordEncoder passwordEncoder;
 

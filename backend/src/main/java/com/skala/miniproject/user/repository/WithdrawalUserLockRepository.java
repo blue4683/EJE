@@ -7,7 +7,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
 
-public interface UserLockRepository extends JpaRepository<User, Long> {
+public interface WithdrawalUserLockRepository extends JpaRepository<User, Long> {
 
     @Query(value = "select * from users where id = :id for update", nativeQuery = true)
     Optional<User> findByIdForUpdate(@Param("id") Long id);
