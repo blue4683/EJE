@@ -23,12 +23,12 @@ defineProps({
   align-items: end;
   justify-content: space-between;
   gap: var(--space-4);
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-5);
 }
 
 .page-header h1 {
   margin: 0;
-  font-size: clamp(1.65rem, 4vw, 2.35rem);
+  font-size: clamp(1.45rem, 3vw, 2rem);
   line-height: 1.2;
   letter-spacing: -0.035em;
 }

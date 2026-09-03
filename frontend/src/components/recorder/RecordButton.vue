@@ -38,13 +38,13 @@ function handleClick() {
   gap: 10px;
   min-width: 180px;
   padding: 14px 22px;
-  border: 0;
-  border-radius: 999px;
+  border: 1px solid #222;
+  border-radius: 7px;
   color: white;
   background: var(--color-primary, var(--accent));
   font-weight: 700;
 }
 .record-button:disabled { cursor: wait; opacity: 0.65; }
-.record-button--active { background: var(--color-danger, #d64545); }
+.record-button--active { color: #222; background: white; }
 .record-button__dot { width: 12px; height: 12px; border-radius: 50%; background: currentColor; }
 </style>

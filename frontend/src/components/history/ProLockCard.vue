@@ -33,7 +33,7 @@ const FEATURE_LABEL = {
 </template>
 
 <style scoped>
-.pro-card { display: flex; align-items: center; justify-content: space-between; gap: var(--space-5); margin-top: var(--space-6); padding: var(--space-6); background: linear-gradient(135deg, #f1f5ff, #fff); border: 1px solid #cbd8ff; border-radius: var(--radius-2); }
+.pro-card { display: flex; align-items: center; justify-content: space-between; gap: var(--space-5); margin-top: var(--space-6); padding: var(--space-6); background: #fff; border: 1px solid var(--color-border); border-radius: var(--radius-2); }
 .pro-card h2, .pro-card p { margin: 0; }
 .eyebrow { color: var(--color-primary); font-size: 0.72rem; font-weight: 900; letter-spacing: 0.12em; }
 .pro-card ul { display: flex; flex: 1; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }

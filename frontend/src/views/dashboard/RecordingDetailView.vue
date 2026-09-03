@@ -53,8 +53,8 @@ onMounted(load)
 </script>
 
 <template>
-  <PageHeader title="연습 상세" description="한 번의 연습과 분석 결과를 확인합니다.">
-    <template #actions><router-link :to="{ name: 'recordingList' }">목록으로</router-link></template>
+  <PageHeader title="1분 자기소개 분석 Report" description="녹음 결과와 발견된 말하기 습관을 확인합니다.">
+    <template #actions><router-link :to="{ name: 'home' }">← Dashboard</router-link></template>
   </PageHeader>
   <StateBlock :state="state" :message="error?.message" @retry="load">
     <template v-if="detail">
@@ -92,17 +92,17 @@ onMounted(load)
 </template>
 
 <style scoped>
-.meta-card { padding: var(--space-6); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-2); }
+.meta-card { padding: var(--space-5); background: var(--color-surface); border: 0; }
 .meta-card__title { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
 .meta-card h2 { margin: 0; font-size: 1.15rem; }
-dl { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4); margin: var(--space-5) 0 0; }
-dl div { display: grid; gap: var(--space-1); }
+dl { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); margin: var(--space-5) 0 0; }
+dl div { display: grid; min-height: 120px; place-content: center; gap: var(--space-2); text-align: center; border: 1px solid var(--color-border); border-radius: 7px; }
 dt { color: var(--color-text-muted); font-size: 0.82rem; }
-dd { margin: 0; font-weight: 800; }
-.result-section { margin-top: var(--space-8); }
+dd { margin: 0; font-size: 1.35rem; font-weight: 800; }
+.result-section { margin-top: var(--space-6); padding: var(--space-5); border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-surface); }
 .section-heading { display: flex; align-items: end; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); }
 .section-heading p, .section-heading h2 { margin: 0; }
-.section-heading p { color: var(--color-primary); font-size: 0.76rem; font-weight: 900; }
+.section-heading p { color: var(--color-text-muted); font-size: 0.76rem; font-weight: 900; }
 .section-heading button { padding: 8px 11px; color: var(--color-text); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-1); }
 .inline-error { padding: var(--space-3); color: var(--color-danger); background: var(--color-danger-weak); border-radius: var(--radius-1); }
 .progress-link { display: inline-flex; margin-top: var(--space-3); font-weight: 800; }

@@ -8,12 +8,13 @@ const view = (path) =>
 const routes = [
   { path: '/login', name: 'login', meta: { public: true }, component: view('auth/LoginView.vue') },
   { path: '/signup', name: 'signup', meta: { public: true }, component: view('auth/SignUpView.vue') },
-  { path: '/', name: 'home', component: view('dashboard/HomeView.vue') },
+  { path: '/', name: 'home', meta: { public: true }, component: view('dashboard/HomeView.vue') },
   { path: '/recordings', name: 'recordingList', component: view('dashboard/RecordingListView.vue') },
   {
     path: '/recordings/:recordingId',
     name: 'recordingDetail',
     props: true,
+    meta: { public: true },
     component: view('dashboard/RecordingDetailView.vue'),
   },
   {
@@ -32,11 +33,12 @@ const routes = [
   },
   { path: '/me', name: 'me', component: view('account/MyPageView.vue') },
   { path: '/upgrade', name: 'upgrade', component: view('account/UpgradeView.vue') },
-  { path: '/record', name: 'record', component: view('practice/RecordView.vue') },
+  { path: '/record', name: 'record', meta: { public: true }, component: view('practice/RecordView.vue') },
   {
     path: '/analyses/:analysisId',
     name: 'analysisProgress',
     props: true,
+    meta: { public: true },
     component: view('practice/AnalysisProgressView.vue'),
   },
   {

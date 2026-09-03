@@ -6,7 +6,7 @@ const session = useSessionStore()
 </script>
 
 <template>
-  <AppHeader v-if="session.isAuthenticated" />
+  <AppHeader />
   <main class="app-main">
     <router-view />
   </main>
@@ -14,14 +14,14 @@ const session = useSessionStore()
 
 <style scoped>
 .app-main {
-  width: min(100% - 32px, 1080px);
+  width: min(100% - 48px, 1280px);
   margin: 0 auto;
-  padding: var(--space-8) 0 var(--space-12);
+  padding: var(--space-6) 0 var(--space-12);
 }
 
 @media (max-width: 640px) {
   .app-main {
-    width: min(100% - 24px, 1080px);
+    width: min(100% - 24px, 1280px);
     padding-top: var(--space-6);
   }
 }
