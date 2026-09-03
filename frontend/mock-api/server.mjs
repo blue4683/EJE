@@ -1,7 +1,7 @@
 import http from 'node:http'
 
 const PORT = Number(process.env.MOCK_PORT ?? 18080)
-const ORIGIN = 'http://127.0.0.1:5173'
+const ORIGIN = 'http://localhost:5173'
 const accounts = {
   'demo@example.com': { password: 'Demo1234!', plan: 'FREE', name: '데모 사용자' },
   'pro@example.com': { password: 'Pro1234!', plan: 'PRO', name: 'PRO 사용자' },
