@@ -168,4 +168,23 @@ public class Analysis {
         this.leaseExpiresAt = null;
         this.updatedAt = now;
     }
+
+    /**
+     * FAILED → PENDING. 수동 재시도(B7). attempt_no 를 1 올리고 auto_retry_count 는 0으로
+     * 되돌린다 — 이어서 세면 4차수째에 자동 재시도가 사라진다. recording_id·submitted_at 은
+     * 이 메서드가 건드리지 않는 필드라 그대로 유지된다. 측정값 5개는 FAILED 상태라 이미 NULL이다
+     * (ck_analyses_result_presence).
+     */
+    public void retry(UUID workerId, Instant leaseExpiresAt, Instant executionDeadlineAt, Instant now) {
+        this.status = AnalysisStatus.PENDING;
+        this.attemptNo = this.attemptNo + 1;
+        this.autoRetryCount = 0;
+        this.failureCode = null;
+        this.startedAt = null;
+        this.finishedAt = null;
+        this.workerId = workerId;
+        this.leaseExpiresAt = leaseExpiresAt;
+        this.executionDeadlineAt = executionDeadlineAt;
+        this.updatedAt = now;
+    }
 }
