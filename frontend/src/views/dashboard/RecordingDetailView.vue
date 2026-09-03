@@ -81,9 +81,9 @@ onMounted(load)
         <router-link v-if="isPending" :to="{ name: 'analysisProgress', params: { analysisId: detail.analysis.analysisId } }" class="progress-link">분석 진행 상황 보기</router-link>
       </section>
 
-      <ProLockCard :pro="detail.pro" :recording-id="recordingId" />
+      <!-- 히스토리 상세는 SCREEN 03 리포트 하나로 끝내고, 무료 사용자에게만 잠금 안내를 표시합니다. -->
+      <ProLockCard v-if="!detail.pro?.available" :pro="detail.pro" :recording-id="recordingId" />
       <div class="footer-actions">
-        <router-link v-if="detail.basic" :to="{ name: 'compare', params: { recordingId } }">이전 기록과 비교</router-link>
         <button type="button" @click="deleteOpen = true">기록 삭제</button>
       </div>
     </template>

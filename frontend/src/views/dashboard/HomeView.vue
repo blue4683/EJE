@@ -1,9 +1,9 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { fetchRecentAnalyses, fetchRecordingPage } from '@/api/history'
+import { formatDateTime, formatMs } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StateBlock from '@/components/common/StateBlock.vue'
-import RecordingCard from '@/components/history/RecordingCard.vue'
 import { useSessionStore } from '@/stores/session'
 
 const session = useSessionStore()
@@ -11,8 +11,29 @@ const items = ref([])
 const state = ref('loading')
 const error = ref(null)
 const isGuest = computed(() => !session.isAuthenticated)
-const previewLayout = import.meta.env.DEV && import.meta.env.VITE_WIREFRAME_PREVIEW !== 'false'
+const isFree = computed(() => session.isAuthenticated && !session.isPro)
 const totalExercises = ref(null)
+const recentRows = computed(() => [items.value[0] ?? null, items.value[1] ?? null])
+const premiumCards = computed(() => {
+  const recentCounts = items.value.map((item) => item.fillerTotalCount).filter((value) => value != null)
+  const recentAverage = recentCounts.length
+    ? (recentCounts.reduce((sum, value) => sum + value, 0) / recentCounts.length).toFixed(1)
+    : '0'
+  if (isFree.value) {
+    return [
+      { label: '평균 추임새', value: '8.2', unit: '회' },
+      { label: '연습 횟수', value: '7', unit: '회' },
+      { label: '추임새 음', value: '3', unit: '회' },
+      { label: '추임새 어', value: '2', unit: '회' },
+    ]
+  }
+  return [
+    { label: '평균 추임새', value: recentAverage, unit: '회' },
+    { label: '연습 횟수', value: String(totalExercises.value ?? 0), unit: '회' },
+    { label: '추임새 음', value: '0', unit: '회' },
+    { label: '추임새 어', value: '0', unit: '회' },
+  ]
+})
 
 async function load() {
   state.value = 'loading'
@@ -60,41 +81,47 @@ onMounted(() => {
       <div class="placeholder-chart" aria-hidden="true"></div>
       <div class="guest-lock__content"><h3>나의 말하기 변화를 기록해보세요</h3><p>로그인하면 연습 횟수와 최근 분석 기록을 확인할 수 있습니다.</p><router-link :to="{ name: 'login' }">로그인 →</router-link></div>
     </div>
-    <div v-if="isGuest && previewLayout" class="metric-grid metric-grid--preview" aria-label="대시보드 레이아웃 미리보기">
-      <article><span>전체 연습 횟수</span><strong>0 <small>회</small></strong></article>
-      <article><span>최근 분석</span><strong>0 <small>건</small></strong></article>
-      <article><span>‘음’ 빈도</span><strong>0 <small>회</small></strong></article>
-      <article><span>‘어’ 빈도</span><strong>0 <small>회</small></strong></article>
-    </div>
-    <div v-else class="metric-grid">
-      <article><span>전체 연습 횟수</span><strong>{{ totalExercises }} <small>회</small></strong></article>
+    <div v-if="session.isAuthenticated" class="metric-grid" aria-label="말하기 지표">
+      <router-link v-for="card in premiumCards" :key="card.label" :to="isFree ? { name: 'upgrade' } : undefined" class="metric-card" :class="{ 'metric-card--locked': isFree }">
+        <span>{{ card.label }}</span>
+        <strong>{{ card.value }} <small>{{ card.unit }}</small></strong>
+        <span v-if="isFree" class="metric-card__lock" aria-label="PRO 전용">🔒</span>
+      </router-link>
     </div>
       <template v-if="session.isAuthenticated">
-      <PageHeader title="최근 분석" description="완료된 분석 중 최근 3건을 보여드려요.">
-        <template #actions><router-link :to="{ name: 'recordingList' }">전체 기록 보기</router-link></template>
-      </PageHeader>
-      <StateBlock :state="state" :message="error?.message" @retry="load">
-        <template #empty-action><router-link :to="{ name: 'record' }">첫 연습 시작하기</router-link></template>
-        <div class="recording-grid"><RecordingCard v-for="item in items" :key="item.recordingId" :recording="item" /></div>
-      </StateBlock>
+      <div class="recent-heading">
+        <h2>최근 분석</h2>
+        <router-link :to="{ name: 'recordingList' }">전체 기록 보기</router-link>
+      </div>
+      <StateBlock v-if="state === 'loading'" state="loading" />
+      <StateBlock v-else-if="state === 'error'" :message="error?.message" state="error" @retry="load" />
+      <div v-else class="recent-list" aria-label="최근 분석 2건">
+        <template v-for="(item, index) in recentRows" :key="item?.recordingId ?? `empty-${index}`">
+          <router-link v-if="item" :to="{ name: 'recordingDetail', params: { recordingId: item.recordingId } }" class="recent-row">
+            <span>{{ formatDateTime(item.submittedAt) }}</span><strong>1분 자기소개</strong><span>{{ formatMs(item.durationMs) }}</span><span>{{ item.status }}</span><span class="recent-row__link">상세보기 →</span>
+          </router-link>
+          <div v-else class="recent-row recent-row--empty" aria-label="아직 분석 기록이 없습니다"><span></span><span></span><span></span></div>
+        </template>
+      </div>
     </template>
     <div v-if="isGuest" class="guest-recent"><h2>최근 분석</h2><p><span aria-hidden="true">🔒</span> 로그인 후 기록을 확인할 수 있어요 <router-link :to="{ name: 'login' }">로그인</router-link></p></div>
   </section>
 </template>
 
 <style scoped>
-.intro { padding: 0 0 var(--space-8); border-bottom: 1px solid var(--color-border); }
-.intro h1 { margin: 0 0 var(--space-2); font-size: clamp(1.7rem, 3vw, 2.25rem); line-height: 1.25; letter-spacing: -0.04em; }
-.intro p { margin: 0; color: var(--color-text-muted); }
-.practice-card { display: flex; align-items: flex-start; justify-content: space-between; min-height: 250px; gap: var(--space-6); margin: var(--space-6) 0 var(--space-8); padding: 36px 28px; border: 3px solid #3b3b3b; border-radius: var(--radius-1); background: var(--color-surface); }
+.intro { padding: var(--space-6) 0; border-bottom: 1px solid var(--color-border); }
+.intro h1 { margin: 0 0 var(--space-2); font-size: clamp(1.2rem, 1.8vw, 1.5rem); line-height: 1.3; letter-spacing: -0.04em; }
+.intro p { margin: 0; color: var(--color-text-muted); font-size: .9rem; }
+.practice-card { display: flex; align-items: flex-start; justify-content: space-between; min-height: 250px; gap: var(--space-6); margin: var(--space-6) 0; padding: 24px; border: 3px solid #3b3b3b; border-radius: var(--radius-1); background: var(--color-surface); }
 .eyebrow { display: inline-block; margin: 0 0 var(--space-3); padding: 5px 12px; color: #555; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.76rem; font-weight: 800; letter-spacing: 0.08em; background: #e8e8e8; border-radius: 6px; }
 .practice-card h2 { margin: 0; font-size: 1.4rem; letter-spacing: -0.03em; }.practice-card h2 span { margin-right: 6px; }.practice-card > div > p:not(.eyebrow) { margin: var(--space-3) 0 var(--space-5); color: var(--color-text-muted); }
 .record-button { display: inline-flex; align-items: center; gap: 8px; padding: 13px 22px; color: white; font-weight: 800; text-decoration: none; background: #222; border-radius: 7px; }.record-button span { color: white; font-size: 0.85rem; }
 .section-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }.section-heading h2, .guest-recent h2 { margin: 0; font-size: 1.1rem; letter-spacing: -0.03em; }.section-heading span { padding: 5px 12px; color: #666; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.72rem; font-weight: 700; background: #e8e8e8; border-radius: 6px; }
-.metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); margin: var(--space-4) 0 var(--space-5); }.metric-grid article { display: grid; gap: var(--space-2); min-height: 116px; padding: var(--space-5); border: 1px solid #cfd3da; border-radius: 7px; background: var(--color-surface); }.metric-grid span { color: var(--color-text-muted); font-size: 0.82rem; }.metric-grid strong { font-size: 2rem; line-height: 1; }.metric-grid small { color: var(--color-text-muted); font-size: 0.8rem; font-weight: 600; }
+.recent-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin: var(--space-3) 0; }.recent-heading h2 { margin: 0; font-size: 1.1rem; letter-spacing: -0.03em; }.recent-heading a { color: var(--color-text-muted); font-size: .86rem; font-weight: 700; }
+.metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); margin: var(--space-4) 0 var(--space-5); }.metric-card { position: relative; display: grid; gap: var(--space-2); min-height: 116px; padding: var(--space-5); color: var(--color-text); text-decoration: none; border: 1px solid #cfd3da; border-radius: 7px; background: var(--color-surface); }.metric-card > span:first-child { color: var(--color-text-muted); font-size: 0.82rem; }.metric-card strong { font-size: 2rem; line-height: 1; }.metric-card small { color: var(--color-text-muted); font-size: 0.8rem; font-weight: 600; }.metric-card--locked > span:first-child, .metric-card--locked strong { filter: blur(5px); opacity: .38; user-select: none; }.metric-card--locked::after { position: absolute; inset: 0; border-radius: inherit; background: rgba(255,255,255,.2); content: ''; pointer-events: none; }.metric-card__lock { position: absolute; top: 50%; left: 50%; z-index: 1; color: #777; font-size: 1.45rem; line-height: 1; transform: translate(-50%, -50%); }
 .guest-lock { position: relative; display: grid; min-height: 210px; place-items: center; overflow: hidden; border: 1px dashed #b9bdc4; border-radius: var(--radius-1); background: var(--color-surface); }.placeholder-chart { position: absolute; inset: 28px 22px; opacity: 0.18; background: linear-gradient(168deg, transparent 48%, #d5d8de 49% 51%, transparent 52%) 0 30% / 28% 60% repeat-x, linear-gradient(#e1e3e7 1px, transparent 1px) 0 0 / 100% 35%; }.guest-lock__content { position: relative; padding: 20px 28px; text-align: center; background: rgba(255,255,255,.88); }.guest-lock__content h3 { margin: 0; font-size: 1.1rem; }.guest-lock__content p { margin: var(--space-2) 0 var(--space-4); color: var(--color-text-muted); }.guest-lock__content a { display: inline-block; padding: 10px 18px; color: white; font-size: .9rem; font-weight: 800; text-decoration: none; background: #222; border-radius: 6px; }
 .guest-recent { margin-top: var(--space-8); }.guest-recent p { margin: var(--space-3) 0 0; padding: 28px; color: var(--color-text-muted); text-align: center; border: 1px solid var(--color-border); border-radius: var(--radius-1); background: var(--color-surface); }.guest-recent a { display: inline-block; margin-left: var(--space-3); padding: 7px 14px; color: var(--color-text); font-weight: 700; text-decoration: none; border: 1px solid #bbb; border-radius: 6px; }
-.recording-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); }
-@media (max-width: 760px) { .practice-card { min-height: 0; padding: var(--space-5); }.metric-grid { grid-template-columns: repeat(2, 1fr); }.recording-grid { grid-template-columns: 1fr; } }
+.recent-list { display: grid; overflow: hidden; border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-surface); }.recent-row { display: grid; grid-template-columns: 110px 1fr 90px 120px 110px; align-items: center; gap: var(--space-4); min-height: 76px; padding: 0 var(--space-5); color: var(--color-text); text-decoration: none; border-bottom: 1px solid #e4e4e4; }.recent-row:last-child { border-bottom: 0; }.recent-row > span { color: var(--color-text-muted); font-size: .86rem; }.recent-row strong { font-size: .96rem; }.recent-row__link { text-align: right; text-decoration: underline; }.recent-row--empty { background: repeating-linear-gradient(135deg, #fff, #fff 10px, #fafafa 10px, #fafafa 20px); }.recent-row--empty span { display: block; height: 10px; border-radius: 3px; background: #f0f0f0; }
+@media (max-width: 760px) { .practice-card { min-height: 0; padding: var(--space-5); }.metric-grid { grid-template-columns: repeat(2, 1fr); }.recent-row { grid-template-columns: 1fr auto; gap: var(--space-2); padding: var(--space-4); }.recent-row > span:nth-of-type(2), .recent-row > span:nth-of-type(3) { display: none; }.recent-row strong { grid-row: 1; }.recent-row__link { grid-row: 2; grid-column: 2; } }
 @media (max-width: 480px) { .practice-card { flex-direction: column; }.section-heading { align-items: flex-start; flex-direction: column; }.metric-grid { grid-template-columns: 1fr; }.guest-lock__content { padding: 20px 14px; } }
 </style>
