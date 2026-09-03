@@ -82,11 +82,18 @@ onMounted(() => {
       <div class="guest-lock__content"><h3>나의 말하기 변화를 기록해보세요</h3><p>로그인하면 연습 횟수와 최근 분석 기록을 확인할 수 있습니다.</p><router-link :to="{ name: 'login' }">로그인 →</router-link></div>
     </div>
     <div v-if="session.isAuthenticated" class="metric-grid" aria-label="말하기 지표">
-      <router-link v-for="card in premiumCards" :key="card.label" :to="isFree ? { name: 'upgrade' } : undefined" class="metric-card" :class="{ 'metric-card--locked': isFree }">
+      <component
+        :is="isFree ? 'router-link' : 'article'"
+        v-for="card in premiumCards"
+        :key="card.label"
+        v-bind="isFree ? { to: { name: 'upgrade' } } : {}"
+        class="metric-card"
+        :class="{ 'metric-card--locked': isFree }"
+      >
         <span>{{ card.label }}</span>
         <strong>{{ card.value }} <small>{{ card.unit }}</small></strong>
         <span v-if="isFree" class="metric-card__lock" aria-label="PRO 전용">🔒</span>
-      </router-link>
+      </component>
     </div>
       <template v-if="session.isAuthenticated">
       <div class="recent-heading">
