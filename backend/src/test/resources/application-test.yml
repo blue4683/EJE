@@ -1,0 +1,13 @@
+spring:
+  datasource:
+    url: ${TEST_DB_URL:jdbc:postgresql://localhost:5432/miniproject}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+jwt:
+  access-secret: test-access-secret-that-is-at-least-32-bytes-long
+  refresh-secret: test-refresh-secret-that-is-at-least-32-bytes
+app:
+  allowed-origin: http://localhost:5173
