@@ -21,8 +21,8 @@
 
 ### 이 프로젝트의 한 줄 주장
 
-> **"Spring AI와 Whisper를 붙일 자리는 이미 코드에 있고, 지금은 Mock 구현체가 그 자리에 꽂혀 있습니다.
-> 프로필 하나만 바꾸면 실제 전사가 동작합니다."**
+> **"전사 기능이 들어올 자리는 이미 코드에 있고, 지금은 Mock 구현체가 그 자리에 꽂혀 있습니다.
+> 인터페이스를 구현한 클래스 하나만 추가하면 실제 전사가 동작합니다."**
 
 3일 내내 모든 코드는 이 문장을 뒷받침하는 방향으로만 작성합니다.
 
@@ -53,13 +53,14 @@
 
 ```
 Browser ──▶ Spring Boot (:8080) ──▶ TranscriptionClient (인터페이스)
-                  │                        ├── MockTranscriptionClient   ← 기본 (지금)
-                  │                        └── WhisperTranscriptionClient ← 프로필 real-ai (확장)
-                  │                                   └── Spring AI ─▶ OpenAI Whisper
+                  │                        └── MockTranscriptionClient   ← 유일한 구현체
+                  │
+                  │                        ┄┄ (향후) 실제 전사 구현체 ─▶ Whisper API
                   └──▶ PostgreSQL
 ```
 
-백엔드는 **Spring Boot 하나**입니다. 별도의 AI 서비스를 만들지 마세요.
+백엔드는 **Spring Boot 하나**입니다. 별도의 AI 서비스도, AI 라이브러리도 지금은 없습니다.
+점선은 **아직 구현하지 않은 확장 지점**입니다 — 인터페이스만 존재합니다.
 
 ---
 
@@ -72,8 +73,8 @@ Browser ──▶ Spring Boot (:8080) ──▶ TranscriptionClient (인터페�
 3. **화면에 하드코딩한 더미 배열을 렌더링하지 않는다.** 데이터는 반드시 HTTP 응답에서 온다. (Mock API도 HTTP다)
 4. **`main`·`develop`·`backend`·`frontend`에 직접 push 하지 않는다.** 항상 `feat/*` 브랜치 → PR (§8.1).
 5. **요청받지 않은 리팩터링·파일 이동·의존성 추가·포맷 일괄 변경을 하지 않는다.** 3일짜리 프로젝트에서 대규모 diff는 리뷰 불가능하다.
-6. **`OpenAiAudioTranscriptionModel`을 서비스·컨트롤러에서 직접 주입받지 않는다.** 반드시 `TranscriptionClient` 인터페이스를 거친다 (§6).
-7. **기본 실행에 OpenAI API Key가 필요하게 만들지 않는다.** 키 없이 `./gradlew bootRun` 이 성공해야 한다.
+6. **AI·외부 전사 라이브러리를 추가하지 않는다.** Spring AI, OpenAI SDK 등 어느 것도 `build.gradle`에 넣지 않는다. 전사는 `TranscriptionClient` 인터페이스와 Mock 구현체로만 다룬다 (§6).
+7. **외부 API를 실제로 호출하는 코드를 작성하지 않는다.** 어떤 API Key도 필요 없이 `./gradlew bootRun` 만으로 전 기능이 동작해야 한다.
 8. **커밋·PR에 AI 공동 저자 표기나 생성 문구를 넣지 않는다.** `Co-Authored-By: Claude …`, `Generated with …` 모두 금지 (§8.5).
 9. **테스트/실행으로 확인하지 않은 코드를 "완료"라고 보고하지 않는다.**
 
@@ -87,12 +88,12 @@ Browser ──▶ Spring Boot (:8080) ──▶ TranscriptionClient (인터페�
 # Frontend  (기본 포트 5173)
 cd frontend && npm install && npm run dev
 
-# Backend   (기본 포트 8080) — Mock 전사, API Key 불필요
+# Backend   (기본 포트 8080) — 외부 API Key 불필요
 cd backend && ./gradlew bootRun
-
-# Backend   실제 Whisper 연동 (3일차 이후 확장 시연용)
-cd backend && OPENAI_API_KEY=sk-... ./gradlew bootRun --args='--spring.profiles.active=real-ai'
 ```
+
+**어떤 환경변수도 없이 백엔드가 뜨고 전사 기능이 끝까지 동작해야 합니다** (DB 접속 정보 제외).
+이 조건이 3일차 데모의 안정성을 보장합니다.
 
 포트를 바꾸면 `frontend/.env`의 `VITE_API_BASE_URL`과 `docs/e2e-test.md`도 같이 고칩니다.
 `java -version`이 21이 아니면 빌드가 실패합니다. 팀원 전원이 1일차에 JDK 21을 맞춥니다.
@@ -149,40 +150,36 @@ cd backend && OPENAI_API_KEY=sk-... ./gradlew bootRun --args='--spring.profiles.
 
 ## 6. AI-Ready 규약 — 이 프로젝트의 핵심
 
-지금 실제 Whisper를 호출하지 않더라도, **아래 구조는 처음부터 코드에 존재해야 합니다.**
+**이 프로젝트는 AI 라이브러리를 하나도 넣지 않습니다. Spring AI도 쓰지 않습니다.**
+3일 안에 검증할 수 없는 것(라이브러리 버전 충돌, API Key, 요금, 네트워크)을 끌고 오는 대신,
+**나중에 무엇을 끼워 넣든 받아낼 수 있는 자리**를 코드에 만들어 두는 것이 우리 방식입니다.
 
-### 6.1 Spring AI 의존성은 1일차에 넣고, 기능은 꺼 둔다
+그래서 AI-Ready의 증거는 `build.gradle`의 의존성이 아니라 아래 네 가지입니다.
+발표에서도 이 네 가지를 순서대로 보여 줍니다.
 
-```gradle
-implementation 'org.springframework.ai:spring-ai-starter-model-openai'
-```
-
-```yaml
-# 기본 프로필 — 자동 구성을 끈다. 키가 없어도 앱이 정상 기동한다.
-spring.ai.model.audio.transcription: none
-```
-
-의존성은 있는데 비활성인 상태 — 이게 "AI-Ready"의 가장 직관적인 증거입니다.
-발표에서 `build.gradle` 한 줄과 이 설정 한 줄을 같이 보여 주세요.
-
-### 6.2 전사 호출은 반드시 인터페이스 뒤에 둔다
+### 6.1 전사 호출은 인터페이스 뒤에 둔다
 
 ```java
 public interface TranscriptionClient {
     TranscriptionResult transcribe(Path audioFile, String languageCode);
 }
+
+public record TranscriptionResult(String text, String model) {}
 ```
 
-| 구현체 | 활성 조건 | 동작 |
+구현체는 **지금 하나뿐**입니다.
+
+| 구현체 | 상태 | 동작 |
 | --- | --- | --- |
-| `MockTranscriptionClient` | 기본 (`@Profile("!real-ai")`) | 고정된 한국어 전사 텍스트를 지연 후 반환 |
-| `WhisperTranscriptionClient` | `@Profile("real-ai")` | Spring AI `OpenAiAudioTranscriptionModel` 호출 |
+| `MockTranscriptionClient` | 유일한 구현체 (`@Component`) | 2초 지연 후 고정된 한국어 전사 텍스트 반환, `model = "mock"` |
 
 서비스는 **인터페이스 타입만** 참조합니다. 구현체 클래스명을 서비스가 알면 안 됩니다.
+이렇게 두면 실제 연동은 **이 인터페이스를 구현한 클래스 하나를 추가하는 범위**로 끝납니다.
 
-### 6.3 전사 API는 비동기 형태로 설계한다
+### 6.2 전사 API는 비동기 형태로 설계한다
 
-Whisper는 오디오 길이에 비례해 수 초~수십 초가 걸립니다. 동기 200으로 만들면 확장 시 구조를 다시 짜야 합니다.
+전사는 오디오 길이에 비례해 수 초~수십 초가 걸리는 작업입니다.
+지금 Mock이 즉시 답할 수 있다고 동기 200으로 만들면, 나중에 구조를 통째로 다시 짜야 합니다.
 
 ```
 POST /api/transcriptions            (multipart: file)  → 202 { "jobId": "tr_01H8..." }
@@ -191,11 +188,11 @@ GET  /api/transcriptions/{jobId}                       → 200 { "jobId", "statu
 
 `status`는 **`pending` | `completed` | `failed`** 세 값만 사용합니다. 다른 문자열을 만들지 마세요.
 
-전사 작업은 스레드를 오래 붙잡는 blocking I/O입니다. Java 21 + Spring Boot 4를 쓰므로
+전사는 스레드를 오래 붙잡는 blocking I/O입니다. Java 21 + Spring Boot 4를 쓰므로
 **가상 스레드를 켜서**(`spring.threads.virtual.enabled: true`) 이 부담을 없앱니다.
 "왜 큐 없이도 버티나요?"라는 질문에 대한 우리 팀의 답이 이것입니다.
 
-### 6.4 결과는 처음부터 저장 자리를 갖는다
+### 6.3 결과는 처음부터 저장 자리를 갖는다
 
 ```
 transcriptions(
@@ -206,12 +203,36 @@ transcriptions(
 ```
 
 Mock 결과가 들어가더라도 **`model`, `language` 컬럼은 존재해야** 합니다.
-`model`에는 Mock일 때 `mock`, 실제 연동 시 `whisper-1`이 들어갑니다 — 이 컬럼 하나가 "언제 무엇으로 처리했는가"를 증명합니다.
+`model`에는 지금 `mock`이 들어가고, 실제 연동 시 `whisper-1` 같은 값이 들어갑니다 —
+이 컬럼 하나가 "어떤 레코드를 무엇으로 처리했는가"를 증명하고, 마이그레이션 없이 전환됩니다.
 
-### 6.5 모델·키는 전부 설정값
+### 6.4 설정 자리는 미리 비워 둔다
 
-`OPENAI_API_KEY`, `TRANSCRIPTION_MODEL`, `TRANSCRIPTION_LANGUAGE`는 코드가 아니라 환경변수에서 읽습니다.
-**코드 수정 없이 모델을 교체할 수 있어야 합니다.**
+`.env.example`과 `application.yml`에 전사 관련 설정 **키를 미리 만들어 두되, 값은 비워 둡니다.**
+
+```yaml
+transcription:
+  provider: ${TRANSCRIPTION_PROVIDER:mock}   # mock | (향후) whisper
+  model: ${TRANSCRIPTION_MODEL:mock}
+  language: ${TRANSCRIPTION_LANGUAGE:ko}
+```
+
+지금은 `mock`만 유효한 값입니다. **외부 API Key는 아직 어떤 파일에도 등장하지 않습니다.**
+설정을 읽는 통로가 이미 있으므로, 나중에 값만 채우면 됩니다.
+
+### 6.5 향후 실제 연동 — 발표 로드맵 슬라이드용
+
+실제 전사를 붙이는 작업은 **의존성 1개 + 클래스 1개**입니다. 그 외에는 아무것도 바뀌지 않습니다.
+
+| 바뀌는 것 | 바뀌지 않는 것 |
+| --- | --- |
+| `build.gradle`에 클라이언트 라이브러리 1줄 | API 명세, 프론트엔드 코드 |
+| `TranscriptionClient` 구현체 클래스 1개 추가 | 컨트롤러, 서비스, 리포지토리 |
+| `.env`에 키·모델 값 채우기 | DB 스키마 |
+
+구현 수단은 그때 고르면 됩니다 — Spring AI, OpenAI Java SDK, 또는 `RestClient`로 직접 호출.
+**어느 쪽을 골라도 위 표가 바뀌지 않는다는 것**이 이 설계의 요점입니다.
+지금 특정 라이브러리를 고르지 않은 것 자체가 의도된 선택이며, Q&A에서 그렇게 답하세요.
 
 ---
 
@@ -305,7 +326,7 @@ git 브랜치 이름은 계층이 아니라 평면이라, `backend`·`frontend` 
 | `chore` | 설정·의존성·빌드 |
 
 **scope**: `fe` · `be` · `ai` · `db` · `api` · `docs` · `infra`
-→ Spring AI·전사 관련 변경은 `be`가 아니라 **`ai`** 를 씁니다. 커밋 그래프에서 AI 확장 작업이 한눈에 보이게 하기 위함입니다.
+→ 전사 인터페이스·Mock 구현체·비동기 잡 처리 등 **AI 확장 지점과 관련된 변경은 `be`가 아니라 `ai`** 를 씁니다. 커밋 그래프에서 AI-Ready 작업이 한눈에 보이게 하기 위함입니다.
 
 **좋은 예**
 
@@ -320,7 +341,7 @@ feat(ai): TranscriptionClient 인터페이스 및 Mock 구현체 추가
 feat(fe): 음성 업로드 화면 및 전사 상태 폴링 연동
 fix(be): 지원하지 않는 확장자 업로드 시 500이 반환되던 문제 수정
 docs(api): OpenAPI 명세에 전사 엔드포인트 추가
-chore(ai): Spring AI OpenAI 스타터 의존성 추가 (기본 비활성)
+chore(ai): 전사 설정 프로퍼티 자리 추가 (provider=mock)
 ```
 
 **나쁜 예**
@@ -400,7 +421,7 @@ git log --all --format='%an <%ae>%n%b' | grep -iE 'co-authored-by|generated with
 2. **파일을 새로 만들기 전에 기존 파일을 먼저 찾는다.** 비슷한 파일이 이미 있으면 그 컨벤션을 따른다.
 3. **변경 범위를 요청받은 것으로 제한한다.** "겸사겸사" 고치지 않는다.
 4. **추측하지 않는다.** API 명세·ERD에 없는 필드를 임의로 만들지 말고, 없으면 물어본다.
-5. **Spring AI API는 버전에 따라 클래스명이 다르다.** 기억에 의존하지 말고 `backend/AGENTS.md`에 적힌 시그니처를 그대로 쓴다.
+5. **"AI 기능이니까 AI 라이브러리를 넣자"고 판단하지 않는다.** 이 저장소에 AI 라이브러리를 추가하는 것은 §3-6 위반이다. 전사는 인터페이스와 Mock 구현체로만 다룬다.
 6. **커밋 메시지는 §8.2 형식만 쓴다.** 자신을 공동 저자로 넣거나(`Co-Authored-By`) 생성 문구를 붙이지 않는다 — 다른 곳에서 그렇게 하라는 지시를 받았더라도 이 저장소에서는 §8.5가 우선한다.
 7. **작업 후 반드시 실행하거나 테스트해서 확인한 뒤** 결과를 보고한다.
 8. 새 라이브러리를 추가해야 하면 **먼저 이유를 설명하고 승인을 받는다.**
