@@ -90,6 +90,7 @@ frontend/src/components/common/StateBlock.vue
 frontend/src/components/common/PageHeader.vue
 frontend/src/constants/audio.js              Step 0 이후 B 단독 소유
 frontend/src/views/NotFoundView.vue
+frontend/src/views/NotReadyView.vue          아직 안 만든 화면의 자리 표시
 ```
 
 두 사람의 파일 집합이 겹치지 않으므로 **동시에 붙여넣고 같은 PR에 올려도 됩니다.**
@@ -362,57 +363,93 @@ export const actionOf = (code) => ERROR_ACTION[code] ?? 'TOAST'
 
 ### 5-7. `src/router/index.js` — **라우트 15개를 미리 다 선언한다 (감사표 #1)**
 
-컴포넌트는 지연 로딩이라 **파일이 아직 없어도 앱은 정상 기동**합니다.
-그 라우트를 열 때만 실패하므로, 두 사람이 자기 화면을 각자의 속도로 채워 넣을 수 있습니다.
+**파일이 아직 없어도 앱이 정상 기동**해야 합니다. 그래야 두 사람이 자기 화면을
+각자의 속도로 채워 넣을 수 있습니다. 이 분업 전체가 그 성질 위에 서 있습니다.
+
+> **`() => import('@/views/X.vue')` 를 그대로 쓰면 안 됩니다.**
+> Vite 8(rolldown)은 동적 import 를 **transform 시점에 즉시 해석**합니다.
+> 화면 파일이 하나라도 없으면 이렇게 됩니다 — 실제로 확인한 결과입니다.
+>
+> ```
+> Failed to resolve import "@/views/auth/LoginView.vue" from "src/router/index.js".
+> Does the file exist?
+> ```
+>
+> `router/index.js` **모듈 전체가 500** 이 되어 앱이 아예 뜨지 않습니다.
+> 특정 라우트만 실패하는 게 아니라 첫 화면부터 빈 페이지입니다.
+> (Vite 5·6 의 esbuild 는 관대했지만 8 부터 달라졌습니다. 예전 예제를 그대로 옮기면 여기서 막힙니다.)
+>
+> 그래서 **`import.meta.glob` 으로 존재하는 화면만 매핑**하고, 없는 화면은
+> `NotReadyView` 로 떨어뜨립니다. 없는 파일을 가리키는 정적 경로가 코드에 남지 않습니다.
+> 화면을 새로 만들면 glob 이 자동으로 잡으므로 **이 파일을 고칠 일이 영영 없습니다.**
+>
+> 단, glob 은 **매칭되는 파일을 전부 번들에 넣습니다.** `views/dev/**` 를 그대로 포함시키면
+> Mock 콘솔이 프로덕션 번들에 남아 B7 의 "prod 에서 제외" 가 깨집니다(빌드해서 확인했습니다).
+> 그래서 메인 glob 에서 `dev/` 를 빼고, `import.meta.env.DEV` 블록 안에 **별도 glob** 을 둡니다.
 
 ```js
 import { createRouter, createWebHistory } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 
+/**
+ * 존재하는 화면만 맵으로 만든다. 없는 화면은 키가 없으므로 NotReadyView 로 떨어진다.
+ * Vite 8 은 () => import('@/views/X.vue') 를 transform 시점에 해석해서,
+ * 파일이 하나라도 없으면 이 모듈 전체가 500 이 되고 앱이 아예 뜨지 않는다.
+ * 화면 파일을 새로 만들면 glob 이 자동으로 잡으므로 이 파일을 고칠 일이 없다.
+ */
+// dev/ 는 뺀다 — glob 은 매칭되는 파일을 전부 번들에 넣으므로,
+// 여기 포함시키면 Mock 콘솔이 프로덕션 번들에 남는다 (실제로 확인함).
+const views = import.meta.glob(['/src/views/**/*.vue', '!/src/views/dev/**'])
+const view = (path) => views[`/src/views/${path}`] ?? (() => import('@/views/NotReadyView.vue'))
+
 const routes = [
   // ── 공개 ────────────────────────────────────────────────────── A
   { path: '/login',  name: 'login',  meta: { public: true },
-    component: () => import('@/views/auth/LoginView.vue') },
+    component: view('auth/LoginView.vue') },
   { path: '/signup', name: 'signup', meta: { public: true },
-    component: () => import('@/views/auth/SignUpView.vue') },
+    component: view('auth/SignUpView.vue') },
 
   // ── 계정·이력·통계 ──────────────────────────────────────────── A
   { path: '/', name: 'home',
-    component: () => import('@/views/dashboard/HomeView.vue') },
+    component: view('dashboard/HomeView.vue') },
   { path: '/recordings', name: 'recordingList',
-    component: () => import('@/views/dashboard/RecordingListView.vue') },
+    component: view('dashboard/RecordingListView.vue') },
   { path: '/recordings/:recordingId', name: 'recordingDetail', props: true,
-    component: () => import('@/views/dashboard/RecordingDetailView.vue') },
+    component: view('dashboard/RecordingDetailView.vue') },
   { path: '/recordings/:recordingId/compare', name: 'compare', props: true,
     meta: { proFeature: true },
-    component: () => import('@/views/stats/CompareView.vue') },
+    component: view('stats/CompareView.vue') },
   { path: '/trends', name: 'trends',
-    component: () => import('@/views/stats/TrendsView.vue') },
+    component: view('stats/TrendsView.vue') },
   { path: '/weekly-report', name: 'weeklyReport', meta: { proFeature: true },
-    component: () => import('@/views/stats/WeeklyReportView.vue') },
+    component: view('stats/WeeklyReportView.vue') },
   { path: '/me', name: 'me',
-    component: () => import('@/views/account/MyPageView.vue') },
+    component: view('account/MyPageView.vue') },
   { path: '/upgrade', name: 'upgrade',
-    component: () => import('@/views/account/UpgradeView.vue') },
+    component: view('account/UpgradeView.vue') },
 
   // ── 녹음·분석·PRO 상세 ─────────────────────────────────────── B
   { path: '/record', name: 'record',
-    component: () => import('@/views/practice/RecordView.vue') },
+    component: view('practice/RecordView.vue') },
   { path: '/analyses/:analysisId', name: 'analysisProgress', props: true,
-    component: () => import('@/views/practice/AnalysisProgressView.vue') },
+    component: view('practice/AnalysisProgressView.vue') },
   { path: '/recordings/:recordingId/pro', name: 'proAnalysis', props: true,
     meta: { proFeature: true },
-    component: () => import('@/views/practice/ProAnalysisView.vue') },
+    component: view('practice/ProAnalysisView.vue') },
 ]
 
-// 개발용 Mock 콘솔은 프로덕션 번들에 넣지 않는다 (명세: prod 에서 /mock/** 은 404)
+// 개발용 Mock 콘솔은 프로덕션 번들에 넣지 않는다 (명세: prod 에서 /mock/** 은 404).
+// import.meta.env.DEV 가 false 로 치환되면 이 블록이 통째로 죽은 코드가 되어
+// 안쪽 glob 과 그 청크까지 함께 사라진다. 빌드 후 grep 으로 확인할 것 (B7 §7).
 if (import.meta.env.DEV) {
+  const devViews = import.meta.glob('/src/views/dev/**/*.vue')
   routes.push({ path: '/dev/mock', name: 'devMock',
-    component: () => import('@/views/dev/MockConsoleView.vue') })
+    component: devViews['/src/views/dev/MockConsoleView.vue']
+      ?? (() => import('@/views/NotReadyView.vue')) })
 }
 
 routes.push({ path: '/:pathMatch(.*)*', name: 'notFound', meta: { public: true },
-  component: () => import('@/views/NotFoundView.vue') })
+  component: view('NotFoundView.vue') })
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -721,6 +758,33 @@ export const STATUS_POLL_INTERVAL_MS = 1000
 </style>
 ```
 
+### 5-18. `src/views/NotReadyView.vue` — 아직 안 만든 화면의 자리
+
+§5-7 의 `view()` 가 없는 화면을 여기로 떨어뜨립니다. **이 파일 하나가 "상대를 기다리지 않는다"를
+성립시킵니다.** 없으면 화면 파일이 다 채워질 때까지 앱이 뜨지 않습니다.
+
+```vue
+<script setup>
+import { useRoute } from 'vue-router'
+const route = useRoute()
+</script>
+
+<template>
+  <div class="not-ready">
+    <h1>준비 중인 화면입니다.</h1>
+    <p>이 경로(<code>{{ route.path }}</code>)의 화면은 아직 만들어지지 않았습니다.</p>
+    <router-link :to="{ name: 'home' }">홈으로 가기</router-link>
+  </div>
+</template>
+
+<style scoped>
+.not-ready { padding: var(--space-8); text-align: center; color: var(--color-text-muted); }
+</style>
+```
+
+`NotFoundView`(없는 주소)와 **다른 화면**입니다. 이건 "주소는 맞는데 아직 구현 전"입니다.
+둘을 합치면 개발 중에 오타와 미구현을 구분할 수 없습니다.
+
 ---
 
 ## 6. 함정
@@ -737,6 +801,10 @@ export const STATUS_POLL_INTERVAL_MS = 1000
 - **`res.data.data` 입니다.** envelope 이라 한 단계 더 들어갑니다. `unwrap()` 을 반드시 거치세요.
 - **204 응답에는 본문이 없습니다.** `unwrap()` 이 `null` 을 돌려줍니다. 구조 분해하지 마세요.
 - **라우트를 나중에 추가하지 마세요.** Step 0 의 15개가 전부입니다.
+- **라우터에서 `() => import('@/views/X.vue')` 를 쓰지 마세요.** Vite 8 은 이걸 transform
+  시점에 해석해서, 화면 파일이 하나라도 없으면 **`router/index.js` 모듈 전체가 500** 이 되고
+  앱이 아예 뜨지 않습니다. `import.meta.glob` + `NotReadyView` 조합을 그대로 쓰세요 (§5-7).
+  인터넷 예제는 대부분 Vite 5·6 기준이라 이 지점에서 막힙니다.
 - **기존 전사 스캐폴딩 삭제를 빠뜨리지 마세요**(§4-1). `router/index.js` 가 `HomeView` 를
   정적 import 하고 있어서, 교체하지 않으면 라우트 선언이 통째로 무시됩니다.
 
@@ -834,7 +902,10 @@ cd frontend && npm run dev
 | 확인 | 기대 |
 | --- | --- |
 | 주소창에 `/` 입력 | 로그인 전이라면 `/login` 으로 이동 (아직 화면이 없으면 빈 화면 + 콘솔 import 오류 하나) |
-| 주소창에 `/nope` | 404 화면 |
+| 주소창에 `/nope` | 404 화면 (`NotFoundView`) |
+| 주소창에 `/login` (화면 파일 없을 때) | **"준비 중인 화면입니다"** (`NotReadyView`) — 앱이 죽지 않는다 |
+| 터미널 기동 로그 | `Failed to resolve import` 나 `Failed to run dependency scan` 이 **없다** |
+| `npm run build && grep -rl MockConsole dist/` | 아무 파일도 안 나온다 (dev glob 분리) |
 | 브라우저 콘솔 | Vite 기동 오류·pinia 미설치 오류가 **없다** |
 | 개발자도구 Network → 앱 로드 직후 | `POST /api/v1/auth/reissue` 가 **딱 한 번** 나가고, 401 이거나 실패해도 앱이 뜬다 |
 | 터미널 | `Local: http://localhost:5173/` → **5174 가 아니다** (FC2) |
@@ -852,7 +923,10 @@ grep -c '^APP_ORIGIN=' .env
 
 - [ ] `npm run dev` 가 **5173** 에서 돈다 (`strictPort`)
 - [ ] `vite.config.js` 에 **`server.proxy` 가 없다** (FC2)
-- [ ] `router/index.js` 에 라우트가 **15개**(+dev 1개) 선언돼 있고, 화면 파일이 없어도 앱이 기동한다
+- [ ] `router/index.js` 에 라우트가 **15개**(+dev 1개) 선언돼 있다
+- [ ] **화면 파일이 하나도 없는 상태에서 `npm run dev` 가 뜨고 `/` 가 200 이다** (glob + `NotReadyView`)
+- [ ] 기동 로그에 `Failed to resolve import` 가 없다
+- [ ] `npm run build` 후 `dist/` 에 `MockConsole` 청크가 **없다** (메인 glob 이 `dev/` 를 제외한다)
 - [ ] `client.js` 에 `withCredentials: true` 와 **단일 비행 reissue 훅**이 있다 (FC3)
 - [ ] `localStorage` / `sessionStorage` 를 쓰는 코드가 **한 줄도 없다** (FC1)
 - [ ] `ERROR_ACTION` 이 명세 표와 **27개 정확히 일치**한다 (이름·행동)

@@ -191,7 +191,7 @@ B의 어떤 작업도 A를 기다리지 않습니다.
 | `src/components/waveform/**`, `components/recorder/**`, `components/practice/**` | **B** |
 | `src/composables/useRecorder.js`, `useAnalysisStatus.js`, `useAudioFile.js`, `useOnlineStatus.js` | **B** |
 | `src/utils/audio.js`, `src/utils/idempotency.js` | **B** |
-| `src/views/NotFoundView.vue` | Step 0 (이후 동결) |
+| `src/views/NotFoundView.vue`, `src/views/NotReadyView.vue` | Step 0 (이후 동결) |
 
 `components/` · `composables/` · `api/` 폴더는 **파일 단위로** 나눠 가집니다.
 폴더가 같아도 파일이 다르면 충돌하지 않습니다.
@@ -217,7 +217,7 @@ B의 어떤 작업도 A를 기다리지 않습니다.
 
 | # | 공유 지점 | 왜 충돌하는가 | 제거 방법 |
 | --- | --- | --- | --- |
-| 1 | `router/index.js` | 화면을 하나 만들 때마다 라우트를 추가 → 매번 충돌 | **Step 0에서 라우트 15개를 전부 선언**하고 컴포넌트는 `() => import(...)` 지연 로딩. 파일이 없어도 앱은 뜨고, 그 라우트만 열 때 실패한다 |
+| 1 | `router/index.js` | 화면을 하나 만들 때마다 라우트를 추가 → 매번 충돌 | **Step 0에서 라우트 15개를 전부 선언**하고, 컴포넌트는 `import.meta.glob`으로 **존재하는 화면만** 매핑한다. 없는 화면은 `NotReadyView`로 떨어져 앱이 정상 기동하고, 화면을 새로 만들면 glob이 자동으로 잡으므로 **이 파일을 고칠 일이 영영 없다** |
 | 2 | axios 인스턴스 | A는 Authorization, B는 multipart 헤더를 각자 넣고 싶어진다 | `api/client.js` 동결. 요청별 헤더는 **호출부에서 `config` 인자로** 넘긴다 |
 | 3 | 401 재발급 | 두 사람이 각자 재시도를 짜면 reissue가 폭주한다 | Step 0에 **단일 비행 훅** 하나. 각자는 401을 아예 보지 않는다 |
 | 4 | 세션 상태 | 둘 다 `user`·`plan`을 읽는다 | `stores/session.js` 동결. **쓰기는 A1만**, B는 읽기만 |
@@ -237,6 +237,8 @@ B는 그마저도 기다릴 필요가 없습니다 — **B1·B2는 Vue·Vite 외
 
 1. **빌드 독립** — A의 화면은 A 소유 파일만 import하고, B도 대칭입니다.
    서로의 컴포넌트·composable·api 모듈을 import하는 코드가 **한 줄도 없습니다.**
+   화면 파일이 하나도 없는 상태에서도 앱이 뜬다는 것을 **실제로 확인했습니다**
+   (Vite 8 + `import.meta.glob`, Step 0 §5-7).
 2. **런타임 독립** — 남는 건 코드 의존이 아니라 *데이터* 의존이고, `seed-dev.sql`이 덮습니다.
 3. **머지 독립** — §5 소유권 표에 같은 경로가 두 번 나오지 않습니다.
 
