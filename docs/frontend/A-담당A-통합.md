@@ -27,18 +27,11 @@ node -v                 # 20 이상. 아니면 여기서 멈추고 Node 를 맞�
 git fetch origin && git switch frontend && git pull
 git switch -c feat/fe-foundation
 
+docker compose down -v && docker compose up -d db backend
+
 cd frontend && npm install
 npm install pinia
 ```
-
-> **선행 필요 — `docker-compose.yml` 미구축.** 아래는 갖춰진 뒤의 절차입니다.
-> Step 0의 검증(§8)은 백엔드 없이도 전부 됩니다 — `reissue` 요청이 실패해도 앱이 뜨는 것까지가 이 절의 범위입니다.
->
-> ```bash
-> cd .. && docker compose down -v && docker compose up -d db backend
-> # 대체 경로 (루트 AGENTS.md §4)
-> cd backend && ./gradlew bootRun
-> ```
 
 ---
 
@@ -895,6 +888,10 @@ const route = useRoute()
 ## 8. 검증
 
 ```bash
+
+docker compose down -v && docker compose up -d db backend
+docker compose logs backend | grep -i "started"
+
 cd frontend && npm run dev
 # http://localhost:5173 로 접속
 ```
@@ -913,7 +910,6 @@ cd frontend && npm run dev
 
 ```bash
 # 백엔드 Origin 설정이 맞는지 (값을 출력하지 않고 존재만 확인)
-# 선행 필요 — 루트 .env 가 만들어진 뒤에 의미가 있다
 grep -c '^APP_ORIGIN=' .env
 ```
 
@@ -975,16 +971,6 @@ git switch -c feat/fe-auth-base
 
 cd frontend && npm run dev
 ```
-
-> **선행 필요 — 백엔드 API 01~05 미구현 / `docker-compose.yml` 미구축.**
-> 갖춰진 뒤의 절차는 아래와 같습니다.
->
-> ```bash
-> docker compose down -v && docker compose up -d db backend
-> docker compose logs backend | grep -i "started"
-> # 대체 경로 (루트 AGENTS.md §4)
-> cd backend && ./gradlew bootRun
-> ```
 
 ---
 
@@ -1151,6 +1137,8 @@ router.beforeEach: session.isAuthenticated 로 판단
 ## 7. 검증
 
 ```bash
+docker compose down -v && docker compose up -d db backend
+
 cd frontend && npm run dev
 ```
 
@@ -1213,9 +1201,6 @@ git switch -c feat/fe-auth-view
 
 cd frontend && npm run dev
 ```
-
-> **선행 필요 — 백엔드 API 01·02 미구현.** 갖춰지면 아래를 함께 실행합니다.
-> `docker compose down -v && docker compose up -d db backend`
 
 ---
 
@@ -1433,11 +1418,10 @@ feat(fe): 로그인·회원가입 화면 구현
 git fetch origin && git switch frontend && git pull
 git switch -c feat/fe-app-shell
 
+docker compose down -v && docker compose up -d db backend
+
 cd frontend && npm run dev
 ```
-
-> **선행 필요 — 백엔드 API 04·05 미구현.** 갖춰지면 함께 실행합니다.
-> `docker compose down -v && docker compose up -d db backend`
 
 ---
 
@@ -1635,11 +1619,10 @@ plan 은 JWT 가 아니라 매 요청 GET /users/me 에서 읽는다.
 git fetch origin && git switch frontend && git pull
 git switch -c feat/fe-withdraw
 
+docker compose down -v && docker compose up -d db backend
+
 cd frontend && npm run dev
 ```
-
-> **선행 필요 — 백엔드 API 06 미구현.**
-> `docker compose down -v && docker compose up -d db backend`
 
 ---
 
@@ -1781,17 +1764,12 @@ axios delete 는 본문을 config.data 로 넘겨야 실린다.
 git fetch origin && git switch frontend && git pull
 git switch -c feat/fe-history-list
 
+docker compose down -v && docker compose up -d db backend
+docker compose exec db psql -U postgres -d miniproject \
+  -c "select id, status from analyses order by id;"
+
 cd frontend && npm run dev
 ```
-
-> **선행 필요 — 백엔드 API 12·15 미구현 / `db/seed-dev.sql` 미구축.**
-> seed 가 COMPLETED 2건·PENDING 1건·FAILED 1건을 넣어 주면 이 화면이 전부 검증됩니다.
->
-> ```bash
-> docker compose down -v && docker compose up -d db backend
-> docker compose exec db psql -U postgres -d miniproject \
->   -c "select id, status from analyses order by id;"
-> ```
 
 > **담당 B 의 업로드를 기다리지 않습니다.** `db/seed-dev.sql` 에 기록이 들어 있습니다.
 
@@ -2005,11 +1983,10 @@ feat(fe): 대시보드 홈과 기록 목록 화면 구현
 git fetch origin && git switch frontend && git pull
 git switch -c feat/fe-history-detail
 
+docker compose down -v && docker compose up -d db backend
+
 cd frontend && npm run dev
 ```
-
-> **선행 필요 — 백엔드 API 10·11·14 미구현 / `db/seed-dev.sql` 미구축.**
-> `docker compose down -v && docker compose up -d db backend`
 
 ---
 
@@ -2260,11 +2237,10 @@ pro.detailUrl 은 /api/v1 API 경로라 href 로 쓰지 않고 라우터 name �
 git fetch origin && git switch frontend && git pull
 git switch -c feat/fe-trends
 
+docker compose down -v && docker compose up -d db backend
+
 cd frontend && npm run dev
 ```
-
-> **선행 필요 — 백엔드 API 16 미구현 / `db/seed-dev.sql` 미구축.**
-> `docker compose down -v && docker compose up -d db backend`
 
 ---
 
@@ -2519,15 +2495,11 @@ averageFillerCount 가 null 인 날은 점을 안 찍고 선을 끊는다.
 git fetch origin && git switch frontend && git pull
 git switch -c feat/fe-stats-pro
 
+docker compose down -v && docker compose up -d db backend
+docker compose exec db psql -U postgres -d miniproject -c "select id, email, plan from users;"
+
 cd frontend && npm run dev
 ```
-
-> **선행 필요 — 백엔드 API 18·19 미구현 / `db/seed-dev.sql` 미구축.**
->
-> ```bash
-> docker compose down -v && docker compose up -d db backend
-> docker compose exec db psql -U postgres -d miniproject -c "select id, email, plan from users;"
-> ```
 
 ---
 

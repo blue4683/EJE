@@ -28,18 +28,11 @@ node -v                 # 20 이상. 아니면 여기서 멈추고 Node 를 맞�
 git fetch origin && git switch frontend && git pull
 git switch -c feat/fe-foundation
 
+docker compose down -v && docker compose up -d db backend
+
 cd frontend && npm install
 npm install pinia
 ```
-
-> **선행 필요 — `docker-compose.yml` 미구축.** 아래는 갖춰진 뒤의 절차입니다.
-> Step 0의 검증(§8)은 백엔드 없이도 전부 됩니다 — `reissue` 요청이 실패해도 앱이 뜨는 것까지가 이 절의 범위입니다.
->
-> ```bash
-> cd .. && docker compose down -v && docker compose up -d db backend
-> # 대체 경로 (루트 AGENTS.md §4)
-> cd backend && ./gradlew bootRun
-> ```
 
 ---
 
@@ -896,6 +889,10 @@ const route = useRoute()
 ## 8. 검증
 
 ```bash
+
+docker compose down -v && docker compose up -d db backend
+docker compose logs backend | grep -i "started"
+
 cd frontend && npm run dev
 # http://localhost:5173 로 접속
 ```
@@ -914,7 +911,6 @@ cd frontend && npm run dev
 
 ```bash
 # 백엔드 Origin 설정이 맞는지 (값을 출력하지 않고 존재만 확인)
-# 선행 필요 — 루트 .env 가 만들어진 뒤에 의미가 있다
 grep -c '^APP_ORIGIN=' .env
 ```
 
@@ -1604,15 +1600,6 @@ git switch -c feat/fe-upload
 cd frontend && npm run dev
 ```
 
-> **선행 필요 — 백엔드 API 07 미구현 / `docker-compose.yml` 미구축.**
->
-> ```bash
-> docker compose down -v && docker compose up -d db backend
-> docker compose logs backend | grep -i "started"
-> # 대체 경로 (루트 AGENTS.md §4)
-> cd backend && ./gradlew bootRun
-> ```
-
 ---
 
 ## 2. 목표와 대상 API
@@ -1903,17 +1890,12 @@ client 기본값이 application/json 이라 지우지 않으면 서버가 파일
 git fetch origin && git switch frontend && git pull
 git switch -c feat/fe-analysis-status
 
+docker compose down -v && docker compose up -d db backend
+docker compose exec db psql -U postgres -d miniproject -c \
+  "select id, recording_id, status, attempt_no, auto_retry_count, failure_code from analyses;"
+
 cd frontend && npm run dev
 ```
-
-> **선행 필요 — 백엔드 API 08·13 미구현 / `db/seed-dev.sql` 미구축.**
-> seed 에 PENDING·FAILED·COMPLETED 가 들어오면 네 가지 상태를 전부 검증할 수 있습니다.
->
-> ```bash
-> docker compose down -v && docker compose up -d db backend
-> docker compose exec db psql -U postgres -d miniproject -c \
->   "select id, recording_id, status, attempt_no, auto_retry_count, failure_code from analyses;"
-> ```
 
 > **B3 을 기다리지 않습니다.** 시드된 분석 ID 를 주소창에 직접 넣어
 > `PENDING`·`FAILED`·`COMPLETED` 세 가지 상태를 전부 검증할 수 있습니다.
@@ -2159,9 +2141,7 @@ docker compose exec db psql -U postgres -d miniproject -c \
 docker compose exec db psql -U postgres -d miniproject -tAc \
   "select id, recording_id from analyses where status='COMPLETED' limit 1;"
 # 두 URL 을 브라우저에서 열어 응답을 비교한다
-```
 
-```bash
 # 7번 준비 — DB 구축 후
 docker compose exec db psql -U postgres -d miniproject -c \
   "update analyses set attempt_no=4 where status='FAILED';"
@@ -2207,11 +2187,10 @@ feat(fe): 분석 진행 화면과 상태 폴링 구현
 git fetch origin && git switch frontend && git pull
 git switch -c feat/fe-manual-retry
 
+docker compose down -v && docker compose up -d db backend
+
 cd frontend && npm run dev
 ```
-
-> **선행 필요 — 백엔드 API 09 미구현.**
-> `docker compose down -v && docker compose up -d db backend`
 
 ---
 
@@ -2416,16 +2395,12 @@ feat(fe): 분석 수동 재시도 구현
 git fetch origin && git switch frontend && git pull
 git switch -c feat/fe-pro-analysis
 
+docker compose down -v && docker compose up -d db backend
+docker compose exec db psql -U postgres -d miniproject -c "select id, email, plan from users;"
+# pro@example.com / P@ssw0rd123 로 로그인해서 확인한다
+
 cd frontend && npm run dev
 ```
-
-> **선행 필요 — 백엔드 API 17 미구현 / `db/seed-dev.sql` 미구축.**
->
-> ```bash
-> docker compose down -v && docker compose up -d db backend
-> docker compose exec db psql -U postgres -d miniproject -c "select id, email, plan from users;"
-> # pro@example.com / P@ssw0rd123 로 로그인해서 확인한다
-> ```
 
 ---
 
@@ -2697,15 +2672,11 @@ segmentAnalysis 는 횟수가 0인 구간도 오므로 필터링하지 않는다
 git fetch origin && git switch frontend && git pull
 git switch -c feat/fe-mock-console
 
+docker compose down -v && docker compose up -d db
+cd backend && SPRING_PROFILES_ACTIVE=local ./gradlew bootRun &
+
 cd frontend && npm run dev
 ```
-
-> **선행 필요 — 백엔드 API 20·21 미구현 / `docker-compose.yml` 미구축.**
->
-> ```bash
-> docker compose down -v && docker compose up -d db
-> cd backend && SPRING_PROFILES_ACTIVE=local ./gradlew bootRun &
-> ```
 
 Mock API 는 **local/test 프로파일에서만 등록**됩니다. prod 에서는 404 입니다.
 
@@ -2895,11 +2866,10 @@ import.meta.env.DEV 가드로 프로덕션 번들에서 통째로 제거된다.
 git fetch origin && git switch frontend && git pull
 git switch -c feat/fe-upload-recovery
 
+docker compose down -v && docker compose up -d db backend
+
 cd frontend && npm run dev
 ```
-
-> **선행 필요 — 백엔드 API 07·08 미구현.**
-> `docker compose down -v && docker compose up -d db backend`
 
 ---
 
