@@ -1,0 +1,2 @@
+# 머신별 로컬 오버라이드. 팀 공용 docker-compose.yml과 분리해서 커밋하지 않는다.
+docker-compose.override.yml
