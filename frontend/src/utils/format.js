@@ -10,27 +10,23 @@ const dateFormatter = new Intl.DateTimeFormat('ko-KR', {
   dateStyle: 'medium',
 })
 
-export const formatDateTime = (iso) => (
+export const formatDateTime = (iso) =>
   iso ? dateTimeFormatter.format(new Date(iso)) : '—'
-)
-export const formatDate = (iso) => (
-  iso ? dateFormatter.format(new Date(iso)) : '—'
-)
-export const formatDayLabel = (ymd) => (
-  ymd ? ymd.slice(5).replace('-', '/') : '—'
-)
-export const formatMs = (milliseconds) => (
-  milliseconds == null ? '—' : `${(milliseconds / 1000).toFixed(1)}초`
-)
-export const formatCount = (count) => (
-  count == null ? '—' : `${count.toLocaleString('ko-KR')}회`
-)
-export const formatNumber = (number) => (
-  number == null ? '—' : number.toLocaleString('ko-KR')
-)
-export const formatPercent = (number) => (
-  number == null ? '—' : `${number > 0 ? '+' : ''}${number}%`
-)
+export const formatDate = (iso) => (iso ? dateFormatter.format(new Date(iso)) : '—')
+export const formatDayLabel = (ymd) => (ymd ? ymd.slice(5).replace('-', '/') : '—')
+export const formatMs = (ms) => (ms == null ? '—' : `${(ms / 1000).toFixed(1)}초`)
+export const formatBytes = (bytes) => {
+  if (bytes == null) return '—'
+  if (bytes < 1024) return `${bytes}B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
+}
+export const formatCount = (value) =>
+  value == null ? '—' : `${value.toLocaleString('ko-KR')}회`
+export const formatNumber = (value) =>
+  value == null ? '—' : value.toLocaleString('ko-KR')
+export const formatPercent = (value) =>
+  value == null ? '—' : `${value > 0 ? '+' : ''}${value}%`
 
 export const PLAN_LABEL = { FREE: '무료', PRO: 'PRO' }
 export const STATUS_LABEL = {
