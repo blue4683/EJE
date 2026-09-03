@@ -1,0 +1,95 @@
+:root {
+  color-scheme: light;
+  --color-bg: #f4f7fb;
+  --color-surface: #ffffff;
+  --color-surface-soft: #f7f9fc;
+  --color-text: #182033;
+  --color-text-muted: #657089;
+  --color-border: #dfe5ef;
+  --color-primary: #3867e8;
+  --color-primary-strong: #254db9;
+  --color-primary-weak: #eaf0ff;
+  --color-danger: #c93838;
+  --color-danger-weak: #fff0f0;
+  --color-warning: #9c6500;
+  --color-warning-weak: #fff7df;
+  --color-success: #18794e;
+  --color-success-weak: #eaf8f1;
+  --color-speech: #3867e8;
+  --color-silence: #c9d1df;
+  --shadow-card: 0 14px 40px rgba(28, 42, 72, 0.08);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --radius-1: 8px;
+  --radius-2: 14px;
+  --radius-3: 20px;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: var(--color-bg);
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  color: var(--color-text);
+  background: var(--color-bg);
+  font-family: var(--font-sans);
+  line-height: 1.55;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+a {
+  color: var(--color-primary-strong);
+}
+
+h1,
+h2,
+h3,
+p {
+  overflow-wrap: anywhere;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
