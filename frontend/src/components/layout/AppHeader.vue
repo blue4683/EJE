@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useSessionStore } from '@/stores/session'
 import { useAuthActions } from '@/composables/useAuthActions'
 import PlanBadge from './PlanBadge.vue'
+import ejeLogo from '@/assets/eje-logo.png'
 
 const session = useSessionStore()
 const { logout, submitting } = useAuthActions()
@@ -12,7 +13,9 @@ const menuOpen = ref(false)
 <template>
   <header class="header">
     <div class="header__inner">
-      <router-link :to="{ name: 'home' }" class="brand"><span aria-hidden="true">🎙️</span> SpeechCoach</router-link>
+      <router-link :to="{ name: 'home' }" class="brand" aria-label="EJE 홈">
+        <img :src="ejeLogo" alt="EJE">
+      </router-link>
       <nav id="main-navigation" class="nav" :class="{ 'nav--open': menuOpen }" aria-label="주요 메뉴">
         <router-link :to="{ name: 'home' }">Dashboard</router-link>
         <router-link :to="{ name: 'record' }">Practice</router-link>
@@ -35,8 +38,8 @@ const menuOpen = ref(false)
 <style scoped>
 .header { position: sticky; z-index: 10; top: 0; background: rgba(255, 255, 255, 0.97); border-bottom: 1px solid var(--color-border); }
 .header__inner { display: flex; width: min(100% - 96px, 1200px); min-height: 72px; align-items: center; justify-content: space-between; gap: var(--space-6); margin: 0 auto; }
-.brand { color: var(--color-text); font-size: 1.2rem; font-weight: 900; text-decoration: none; letter-spacing: -0.04em; }
-.brand span { margin-right: 5px; font-size: 1rem; }
+.brand { display: inline-flex; align-items: center; height: 40px; }
+.brand img { display: block; width: 72px; height: 40px; object-fit: cover; object-position: center; }
 .nav, .me { display: flex; align-items: center; gap: 36px; }
 .me { gap: 18px; }
 .nav a { color: #999; font-size: 1rem; font-weight: 600; text-decoration: none; white-space: nowrap; }

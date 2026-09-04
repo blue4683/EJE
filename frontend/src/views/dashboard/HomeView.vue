@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { fetchRecentAnalyses, fetchRecordingPage } from '@/api/history'
+import { fetchRecentAnalyses } from '@/api/history'
+import { fetchProAnalysis } from '@/api/proAnalysis'
 import { formatDateTime, formatMs } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StateBlock from '@/components/common/StateBlock.vue'
@@ -11,40 +12,39 @@ const items = ref([])
 const state = ref('loading')
 const error = ref(null)
 const isGuest = computed(() => !session.isAuthenticated)
-const isFree = computed(() => session.isAuthenticated && !session.isPro)
-const totalExercises = ref(null)
 const recentRows = computed(() => [items.value[0] ?? null, items.value[1] ?? null])
-const premiumCards = computed(() => {
-  const recentCounts = items.value.map((item) => item.fillerTotalCount).filter((value) => value != null)
-  const recentAverage = recentCounts.length
-    ? (recentCounts.reduce((sum, value) => sum + value, 0) / recentCounts.length).toFixed(1)
-    : '0'
-  if (isFree.value) {
-    return [
-      { label: '평균 추임새', value: '8.2', unit: '회' },
-      { label: '연습 횟수', value: '7', unit: '회' },
-      { label: '추임새 음', value: '3', unit: '회' },
-      { label: '추임새 어', value: '2', unit: '회' },
-    ]
-  }
-  return [
-    { label: '평균 추임새', value: recentAverage, unit: '회' },
-    { label: '연습 횟수', value: String(totalExercises.value ?? 0), unit: '회' },
-    { label: '추임새 음', value: '0', unit: '회' },
-    { label: '추임새 어', value: '0', unit: '회' },
-  ]
-})
+const latestFillerCount = computed(() => items.value[0]?.fillerTotalCount ?? null)
+const proMetricLabels = ['말하기 속도', '침묵 구간', '맞춤 코칭']
+const proMetrics = ref(null)
+const proMetricCards = computed(() => [
+  { label: '최근 분석의 추임새', value: latestFillerCount.value, unit: '회' },
+  {
+    label: '말하기 속도',
+    value: proMetrics.value?.speechRate?.wordsPerMinute ?? null,
+    unit: 'WPM',
+  },
+  {
+    label: '침묵 시간',
+    value: proMetrics.value ? formatMs(proMetrics.value.silenceDurationMs) : null,
+    unit: '',
+  },
+  {
+    label: '맞춤 코칭',
+    value: proMetrics.value?.coaching?.actionItems?.length ?? null,
+    unit: '개',
+  },
+])
 
 async function load() {
   state.value = 'loading'
   error.value = null
+  proMetrics.value = null
   try {
-    const [recent, page] = await Promise.all([
-      fetchRecentAnalyses(),
-      fetchRecordingPage(0, 1),
-    ])
+    const recent = await fetchRecentAnalyses()
     items.value = recent.items
-    totalExercises.value = page.totalElements
+    if (session.isPro && recent.items[0]) {
+      proMetrics.value = (await fetchProAnalysis(recent.items[0].recordingId)).metrics
+    }
     state.value = recent.items.length ? 'ready' : 'empty'
   } catch (caught) {
     error.value = caught
@@ -82,18 +82,28 @@ onMounted(() => {
       <div class="guest-lock__content"><h3>나의 말하기 변화를 기록해보세요</h3><p>로그인하면 연습 횟수와 최근 분석 기록을 확인할 수 있습니다.</p><router-link :to="{ name: 'login' }">로그인 →</router-link></div>
     </div>
     <div v-if="session.isAuthenticated" class="metric-grid" aria-label="말하기 지표">
-      <component
-        :is="isFree ? 'router-link' : 'article'"
-        v-for="card in premiumCards"
-        :key="card.label"
-        v-bind="isFree ? { to: { name: 'upgrade' } } : {}"
-        class="metric-card"
-        :class="{ 'metric-card--locked': isFree }"
-      >
-        <span>{{ card.label }}</span>
-        <strong>{{ card.value }} <small>{{ card.unit }}</small></strong>
-        <span v-if="isFree" class="metric-card__lock" aria-label="PRO 전용">🔒</span>
-      </component>
+      <template v-if="session.isPro">
+        <article v-for="card in proMetricCards" :key="card.label" class="metric-card metric-card--basic">
+          <span>{{ card.label }}</span>
+          <strong>{{ card.value ?? '—' }} <small v-if="card.value != null && card.unit">{{ card.unit }}</small></strong>
+        </article>
+      </template>
+      <template v-else>
+        <article class="metric-card metric-card--basic">
+          <span>최근 분석의 추임새</span>
+          <strong>{{ latestFillerCount ?? '—' }} <small v-if="latestFillerCount != null">회</small></strong>
+        </article>
+        <router-link
+          v-for="label in proMetricLabels"
+          :key="label"
+          :to="{ name: 'upgrade' }"
+          class="metric-card metric-card--locked"
+        >
+          <span>{{ label }}</span>
+          <span class="metric-card__lock" aria-label="PRO 전용">🔒</span>
+          <small>PRO 상세 분석</small>
+        </router-link>
+      </template>
     </div>
       <template v-if="session.isAuthenticated">
       <div class="recent-heading">

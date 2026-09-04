@@ -17,10 +17,10 @@ const left = (milliseconds) => {
       :key="event.eventIndex"
       class="marker"
       :style="{ left: left(event.timeMs) }"
-      :title="`${event.word} · ${(event.timeMs / 1000).toFixed(1)}초`"
+      :title="`${event.expression} · ${(event.timeMs / 1000).toFixed(1)}초`"
     >
       <span class="dot" aria-hidden="true" />
-      <span class="word">{{ event.word }}</span>
+      <span class="word">{{ event.expression }}</span>
     </span>
   </div>
 </template>
