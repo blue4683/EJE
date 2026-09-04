@@ -35,7 +35,9 @@
 ├── frontend/          Vue 3 + Vite              → frontend/AGENTS.md
 ├── backend/           Java 21 + Spring Boot 4.1 → backend/AGENTS.md
 ├── docs/
-│   ├── api/           OpenAPI(Swagger) 명세
+│   ├── api/           API 명세 (단일 원본 — 코드보다 우선한다, §3-2)
+│   ├── frontend/      프론트엔드 단계별 구현 문서 (담당자별 분업)
+│   ├── backend/       백엔드 단계별 구현 문서
 │   ├── erd/           ERD 이미지 및 DBML
 │   ├── wireframe/     화면 설계
 │   ├── capture/       발표용 산출물 캡처 (모든 결과물은 여기에)
@@ -106,9 +108,13 @@ cd backend && ./gradlew bootRun
 
 ### 5.1 URL
 
-- 리소스는 **복수형 명사**, 소문자, 단어 구분은 하이픈: `/api/transcriptions`, `/api/audio-files`
-- **URL에 동사를 쓰지 않는다.** `/api/getTranscription` ❌ → `GET /api/transcriptions/{id}` ✅
-- 계층은 2단계까지
+- **버전 프리픽스는 `/api/v1`** 입니다. 백엔드 `context-path`가 여기까지 포함하고,
+  프론트 `VITE_API_BASE_URL`도 `http://localhost:8080/api/v1` 처럼 **끝까지** 지정합니다.
+  그래서 프론트 호출은 `client.post('/auth/login')` 이 맞습니다 — 경로를 두 번 붙이지 마세요.
+- 리소스는 **복수형 명사**, 소문자, 단어 구분은 하이픈: `/recordings`, `/dashboard/recent-analyses`
+- **URL에 동사를 쓰지 않는다.** `/api/v1/getRecording` ❌ → `GET /api/v1/recordings/{id}` ✅
+  (예외: `POST /analyses/{id}/retry` 처럼 **상태 전이를 일으키는 하위 동작**은 허용합니다)
+- 계층은 **3단계까지** — `/dashboard/recordings/{recordingId}/status` 가 최대 깊이입니다
 
 ### 5.2 JSON 필드는 `camelCase`, 시간은 ISO 8601 UTC
 
@@ -124,27 +130,52 @@ cd backend && ./gradlew bootRun
 | 상황 | 코드 |
 | --- | --- |
 | 조회·수정 성공 | `200` |
-| 생성 성공 | `201` + `Location` 헤더 |
+| 생성 성공 | `201` |
 | 삭제 성공 (본문 없음) | `204` |
-| **비동기 작업 접수** | `202` + `{ "jobId": "..." }` |
+| **비동기 작업 접수** | `202` + `{ "analysisId": "...", "status": "PENDING", ... }` |
 | 요청 형식 오류 | `400` |
-| 유효성 검증 실패 (파일 형식·용량 등) | `422` |
-| 리소스 없음 | `404` |
+| 인증 실패·토큰 만료 | `401` |
+| 권한 부족 (등급·Origin) | `403` |
+| 리소스 없음 **또는 남의 리소스** | `404` |
+| 요청 시간 초과 | `408` |
+| 상태 충돌 (진행 중·중복·재시도 한도) | `409` |
+| 삭제되어 사라진 리소스 | `410` |
 | 업로드 용량 초과 | `413` |
+| 지원하지 않는 미디어 타입 | `415` |
+| 유효성 검증 실패 (길이·손상·파라미터 등) | `422` |
 | 서버 오류 | `500` |
+| 용량 초과·일시적 이용 불가 | `503` |
 
-### 5.4 에러 응답은 단 하나의 형태만
+- **남의 리소스와 없는 리소스는 똑같이 `404`** 입니다. 존재 여부가 노출되면 안 됩니다.
+- 등급 검사보다 **소유권 검사가 먼저**입니다. 남의 기록에 `403`을 주면 그 ID의 존재가 드러납니다.
+- `415`(형식이 허용 목록에 없음)와 `422`(형식은 맞는데 손상·0바이트)를 구분합니다.
+
+### 5.4 모든 응답은 하나의 envelope 형태만
+
+성공·실패를 가리지 않고 **`{ success, data, error }`** 로 감쌉니다.
 
 ```json
+// 성공 — error 는 null
+{ "success": true, "data": { "recordingId": "101", "status": "PENDING" }, "error": null }
+
+// 실패 — data 는 null
 {
-  "code": "UNSUPPORTED_AUDIO_FORMAT",
-  "message": "지원하지 않는 오디오 형식입니다. mp3, m4a, wav, webm 파일을 올려 주세요.",
-  "detail": null
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "UNSUPPORTED_MEDIA_TYPE",
+    "message": "지원하지 않는 음성 형식입니다."
+  }
 }
 ```
 
-- `code`는 대문자 스네이크, `message`는 **사용자에게 그대로 보여줄 한국어 문장**
-- FE는 `message`를 그대로 화면에 노출한다 (별도 문구를 만들지 않는다)
+- `error.code`는 대문자 스네이크, `error.message`는 **사용자에게 그대로 보여줄 한국어 문장**
+- FE는 `error.code`로 **행동을 분기**하고 `error.message`를 **그대로** 화면에 노출한다
+  (별도 문구를 만들지 않는다)
+- **성공 응답의 본문은 `res.data.data`** 입니다 — envelope이라 한 단계 더 들어갑니다.
+  FE는 `unwrap()` 헬퍼 한 곳에서만 벗깁니다 (`frontend/AGENTS.md` §3.1).
+- `204`에는 본문이 없습니다. envelope도 오지 않습니다.
+- 모든 응답에 `Cache-Control: no-store`를 붙입니다.
 
 ---
 
@@ -156,6 +187,12 @@ cd backend && ./gradlew bootRun
 
 그래서 AI-Ready의 증거는 `build.gradle`의 의존성이 아니라 아래 네 가지입니다.
 발표에서도 이 네 가지를 순서대로 보여 줍니다.
+
+> **정합성 메모** — §6.2의 엔드포인트·상태값은 API 명세 v3.0.0에 맞춰 갱신했습니다.
+> 반면 §6.1의 `TranscriptionClient`·§6.3의 `transcriptions` 테이블은 **아직 이전 이름 그대로**입니다.
+> v3.0.0의 `MOCK_001`·`MOCK_002`(`/mock/waveform-analysis`·`/mock/transcript-analysis`)가
+> 사실상 같은 Mock 심(seam)이라 **구조는 그대로 유효**하지만, 명칭 정리는 발표 서사에 직결되므로
+> PM 판단으로 남겨 두었습니다. 자세한 목록은 `docs/frontend/README.md` §11.2 참조.
 
 ### 6.1 전사 호출은 인터페이스 뒤에 둔다
 
@@ -182,11 +219,19 @@ public record TranscriptionResult(String text, String model) {}
 지금 Mock이 즉시 답할 수 있다고 동기 200으로 만들면, 나중에 구조를 통째로 다시 짜야 합니다.
 
 ```
-POST /api/transcriptions            (multipart: file)  → 202 { "jobId": "tr_01H8..." }
-GET  /api/transcriptions/{jobId}                       → 200 { "jobId", "status", "text", "errorMessage" }
+POST /api/v1/recordings                     (multipart: audio)  → 202 { "analysisId", "status", ... }
+GET  /api/v1/analyses/{analysisId}/status                       → 200 { "status", "failureCode", ... }
 ```
 
-`status`는 **`pending` | `completed` | `failed`** 세 값만 사용합니다. 다른 문자열을 만들지 마세요.
+`status`는 **`PENDING` | `PROCESSING` | `COMPLETED` | `FAILED`** 네 값만 사용합니다.
+대문자 스네이크이며, 다른 문자열을 만들지 마세요.
+
+> `PROCESSING`이 따로 있는 이유 — "접수됐다"와 "지금 돌고 있다"가 구분되어야
+> 진행 화면이 상태 전이를 보여줄 수 있습니다. 그게 이 설계를 화면으로 증명하는 방법입니다.
+
+**분석 실패는 HTTP 오류가 아닙니다.** 조회는 `200`이고 `data.status = FAILED` 와
+`failureCode`로 표현합니다. FE가 이걸 예외로 던지면 폴링이 catch로 빠져
+정상 흐름이 오류 화면으로 뒤집힙니다. HTTP 오류는 리소스가 없을 때(`404`)뿐입니다.
 
 전사는 스레드를 오래 붙잡는 blocking I/O입니다. Java 21 + Spring Boot 4를 쓰므로
 **가상 스레드를 켜서**(`spring.threads.virtual.enabled: true`) 이 부담을 없앱니다.
