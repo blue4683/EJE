@@ -1,0 +1,7 @@
+build/
+.gradle/
+.git/
+.idea/
+uploads/
+*.log
+HELP.md

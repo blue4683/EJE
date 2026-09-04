@@ -18,30 +18,23 @@ repositories {
 	mavenCentral()
 }
 
-ext {
-	set('springAiVersion', "2.0.1")
-}
-
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
-	implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	// C2: Jackson 3를 쓰는 Boot 4에서 Jackson 2를 끌어오지 않는 JWT 라이브러리
+	implementation 'com.nimbusds:nimbus-jose-jwt:9.40'
 	compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'org.postgresql:postgresql'
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testImplementation 'org.springframework.security:spring-security-test'
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'
-}
-
-dependencyManagement {
-	imports {
-		mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
-	}
 }
 
 tasks.named('test') {

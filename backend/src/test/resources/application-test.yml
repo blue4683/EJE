@@ -1,0 +1,16 @@
+spring:
+  datasource:
+    url: ${TEST_DB_URL:jdbc:postgresql://localhost:5432/miniproject}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+jwt:
+  access-secret: test-access-secret-that-is-at-least-32-bytes-long
+  refresh-secret: test-refresh-secret-that-is-at-least-32-bytes
+app:
+  allowed-origin: http://localhost:5173
+analysis:
+  slots: 10                             # 기본값(2)은 통합 테스트에서 연속된 성공 재시도가
+  upload-slots: 10                      # 실제 비동기 파이프라인(약 2초)을 여러 번 겹쳐 돌려 소진되기 쉽다

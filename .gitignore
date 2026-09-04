@@ -1,0 +1,11 @@
+# 머신별 로컬 오버라이드. 팀 공용 docker-compose.yml과 분리해서 커밋하지 않는다.
+docker-compose.override.yml
+
+# docker compose가 참조하는 루트 .env (DB 접속 정보·JWT 시크릿). 커밋 금지 (AGENTS.md §3-1).
+.env
+
+# 로컬 검수용 와이어프레임·규격 자료 (공식 문서는 docs/에서 관리)
+/A-담당A-통합.md
+/B-담당B-통합.md
+/Low-Fidelity Wireframe Design – Figma Make.pdf
+/wireframe-frontend-adaptation-plan.md

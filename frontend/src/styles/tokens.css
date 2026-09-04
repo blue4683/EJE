@@ -1,0 +1,96 @@
+:root {
+  color-scheme: light;
+  --color-bg: #f3f3f3;
+  --color-surface: #ffffff;
+  --color-surface-soft: #f7f7f7;
+  --color-text: #222222;
+  --color-text-muted: #777777;
+  --color-border: #cccccc;
+  --color-primary: #222222;
+  --color-primary-strong: #222222;
+  --color-primary-weak: #eeeeee;
+  --color-danger: #222222;
+  --color-danger-weak: #f1f1f1;
+  --color-warning: #555555;
+  --color-warning-weak: #f5f5f5;
+  --color-success: #333333;
+  --color-success-weak: #f1f1f1;
+  --color-speech: #777777;
+  --color-silence: #d8d8d8;
+  --shadow-card: none;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --radius-1: 8px;
+  --radius-2: 8px;
+  --radius-3: 8px;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: var(--color-bg);
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  color: var(--color-text);
+  background: var(--color-bg);
+  font-family: var(--font-sans);
+  line-height: 1.55;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+a {
+  color: var(--color-primary-strong);
+}
+
+h1,
+h2,
+h3,
+p {
+  overflow-wrap: anywhere;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
