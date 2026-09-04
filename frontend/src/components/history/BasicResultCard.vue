@@ -1,12 +1,8 @@
 <script setup>
-import { computed } from 'vue'
 import FillerBreakdownList from './FillerBreakdownList.vue'
 import { formatCount } from '@/utils/format'
 
-const props = defineProps({ basic: { type: Object, required: true } })
-const freeBreakdown = computed(() => (
-  props.basic.fillerBreakdown?.filter((item) => ['어', '음'].includes(item.expression)) ?? []
-))
+defineProps({ basic: { type: Object, required: true } })
 </script>
 
 <template>
@@ -16,8 +12,8 @@ const freeBreakdown = computed(() => (
       <strong>{{ formatCount(basic.fillerTotalCount) }}</strong>
     </div>
     <div>
-      <h2>어·음 빈도</h2>
-      <FillerBreakdownList :items="freeBreakdown" />
+      <h2>발견된 습관어</h2>
+      <FillerBreakdownList :items="basic.fillerBreakdown ?? []" />
     </div>
   </section>
 </template>

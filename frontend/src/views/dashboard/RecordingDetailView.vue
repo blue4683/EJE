@@ -2,13 +2,14 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { fetchBasicResult, fetchRecordingDetail } from '@/api/history'
+import { fetchProAnalysis } from '@/api/proAnalysis'
 import { formatBytes, formatDateTime, formatMs } from '@/utils/format'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StateBlock from '@/components/common/StateBlock.vue'
 import StatusChip from '@/components/history/StatusChip.vue'
 import BasicResultCard from '@/components/history/BasicResultCard.vue'
-import ProLockCard from '@/components/history/ProLockCard.vue'
 import DeleteRecordingDialog from '@/components/history/DeleteRecordingDialog.vue'
+import ProAnalysisSummary from '@/components/practice/ProAnalysisSummary.vue'
 
 const props = defineProps({ recordingId: { type: String, required: true } })
 const router = useRouter()
@@ -18,14 +19,25 @@ const error = ref(null)
 const refreshError = ref(null)
 const refreshing = ref(false)
 const deleteOpen = ref(false)
+const proResult = ref(null)
+const proError = ref(null)
 
 const isPending = computed(() => detail.value && !detail.value.basic)
 
 async function load() {
   state.value = 'loading'
   error.value = null
+  proResult.value = null
+  proError.value = null
   try {
     detail.value = await fetchRecordingDetail(props.recordingId)
+    if (detail.value.pro?.available) {
+      try {
+        proResult.value = await fetchProAnalysis(props.recordingId)
+      } catch (caught) {
+        proError.value = caught
+      }
+    }
     state.value = 'ready'
   } catch (caught) {
     error.value = caught
@@ -81,8 +93,16 @@ onMounted(load)
         <router-link v-if="isPending" :to="{ name: 'analysisProgress', params: { analysisId: detail.analysis.analysisId } }" class="progress-link">분석 진행 상황 보기</router-link>
       </section>
 
-      <!-- 히스토리 상세는 SCREEN 03 리포트 하나로 끝내고, 무료 사용자에게만 잠금 안내를 표시합니다. -->
-      <ProLockCard v-if="!detail.pro?.available" :pro="detail.pro" :recording-id="recordingId" />
+      <section v-if="detail.pro" class="pro-result-section">
+        <div class="section-heading">
+          <div><p>PRO ANALYSIS</p><h2>상세 분석 데이터</h2></div>
+          <router-link v-if="detail.pro.available" :to="{ name: 'proAnalysis', params: { recordingId } }">전체 화면으로 보기</router-link>
+          <router-link v-else :to="{ name: 'upgrade' }">PRO 기능 알아보기</router-link>
+        </div>
+        <p v-if="proError" class="inline-error" role="alert">{{ proError.message }}</p>
+        <ProAnalysisSummary v-else-if="proResult?.metrics" :metrics="proResult.metrics" />
+        <ProAnalysisSummary v-else :locked="true" />
+      </section>
       <div class="footer-actions">
         <button type="button" @click="deleteOpen = true">기록 삭제</button>
       </div>
@@ -100,10 +120,12 @@ dl div { display: grid; min-height: 120px; place-content: center; gap: var(--spa
 dt { color: var(--color-text-muted); font-size: 0.82rem; }
 dd { margin: 0; font-size: 1.35rem; font-weight: 800; }
 .result-section { margin-top: var(--space-6); padding: var(--space-5); border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-surface); }
+.pro-result-section { display: grid; gap: var(--space-4); margin-top: var(--space-6); padding: var(--space-5); border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-surface); }
 .section-heading { display: flex; align-items: end; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); }
 .section-heading p, .section-heading h2 { margin: 0; }
 .section-heading p { color: var(--color-text-muted); font-size: 0.76rem; font-weight: 900; }
 .section-heading button { padding: 8px 11px; color: var(--color-text); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-1); }
+.section-heading a { color: var(--color-text); font-size: .9rem; font-weight: 800; }
 .inline-error { padding: var(--space-3); color: var(--color-danger); background: var(--color-danger-weak); border-radius: var(--radius-1); }
 .progress-link { display: inline-flex; margin-top: var(--space-3); font-weight: 800; }
 .footer-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin-top: var(--space-8); padding-top: var(--space-5); border-top: 1px solid var(--color-border); }
